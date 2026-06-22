@@ -25,7 +25,7 @@ export const toggleFavorite = createServerFn({ method: "POST" })
         .is("viewer_profile_id", null);
       return { favorited: false };
     }
-    await supabase.from("favorites").insert({ user_id: userId, movie_id: data.movieId });
+    await supabase.from("favorites").insert({ user_id: userId, movie_id: data.movieId, viewer_profile_id: null as unknown as string });
     return { favorited: true };
   });
 
