@@ -61,3 +61,9 @@ export function getStorageProvider(id: StorageProvider["id"]): StorageProvider {
   if (!p) throw new Error(`Storage provider n\u00e3o registrado: ${id}`);
   return p;
 }
+
+/** Default provider id chosen by the server (R2 when configured). */
+export function defaultStorageProviderId(): StorageProvider["id"] {
+  if (typeof process !== "undefined" && process.env?.R2_BUCKET) return "r2";
+  return "tmdb_only";
+}
