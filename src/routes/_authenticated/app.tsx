@@ -11,15 +11,13 @@ export const Route = createFileRoute("/_authenticated/app")({
   component: Dashboard,
 });
 
-async function listMovies(order: string, limit = 20, extra?: (q: ReturnType<typeof supabase.from<"movies">["select"]>) => void) {
-  let q = supabase
+async function listMovies(order: "added_at" | "vote_average", limit = 20) {
+  const { data } = await supabase
     .from("movies")
     .select("id,title,release_year,poster_path,backdrop_path,vote_average,added_at,overview")
     .eq("is_archived", false)
-    .order(order as never, { ascending: false })
+    .order(order, { ascending: false })
     .limit(limit);
-  if (extra) extra(q);
-  const { data } = await q;
   return (data ?? []) as (MovieCardData & { backdrop_path?: string | null; overview?: string | null; added_at?: string })[];
 }
 
