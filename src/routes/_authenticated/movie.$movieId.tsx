@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate, notFound } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Heart, Plus, Check, Play, Trash2, ChevronLeft, Star } from "lucide-react";
+import { Heart, Plus, Check, Play, Trash2, ChevronLeft, Star, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toggleFavorite, toggleWatchlist, markWatched, deleteMovie } from "@/lib/movies.functions";
+import { UploadDropzone } from "@/components/UploadDropzone";
 
 export const Route = createFileRoute("/_authenticated/movie/$movieId")({
   component: MoviePage,
@@ -86,6 +87,7 @@ function MoviePage() {
     .filter((c: { role: string }) => c.role === "cast")
     .sort((a: { ord: number | null }, b: { ord: number | null }) => (a.ord ?? 99) - (b.ord ?? 99));
   const genres = (movie.movie_genres ?? []).map((g: { genres: { name: string } | null }) => g.genres?.name).filter(Boolean);
+  const hasFile = Boolean((movie as unknown as { storage_key?: string | null }).storage_key);
 
   return (
     <div className="pb-16">
@@ -122,11 +124,17 @@ function MoviePage() {
               {genres.length > 0 && <span>{genres.join(" • ")}</span>}
             </div>
             <div className="mt-6 flex flex-wrap gap-2">
-              <PlayDialog title={movie.title}>
-                <Button size="lg" className="gap-2 bg-gradient-primary text-primary-foreground shadow-glow">
+              {hasFile ? (
+                <Button
+                  size="lg"
+                  onClick={() => navigate({ to: "/watch/$movieId", params: { movieId } })}
+                  className="gap-2 bg-gradient-primary text-primary-foreground shadow-glow"
+                >
                   <Play className="h-4 w-4 fill-current" /> Assistir
                 </Button>
-              </PlayDialog>
+              ) : (
+                <UploadButton movieId={movieId} movieTitle={movie.title} onDone={() => qc.invalidateQueries({ queryKey: ["movie", movieId] })} />
+              )}
               <Button variant="secondary" onClick={() => favMut.mutate()} className="gap-2">
                 <Heart className={"h-4 w-4 " + (isFavorited ? "fill-current text-primary" : "")} />
                 {isFavorited ? "Favorito" : "Favoritar"}
@@ -203,23 +211,27 @@ function MoviePage() {
   );
 }
 
-function PlayDialog({ title, children }: { title: string; children: React.ReactNode }) {
+function UploadButton({
+  movieId,
+  movieTitle,
+  onDone,
+}: {
+  movieId: string;
+  movieTitle: string;
+  onDone: () => void;
+}) {
   return (
     <Dialog>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogTrigger asChild>
+        <Button size="lg" className="gap-2 bg-gradient-primary text-primary-foreground shadow-glow">
+          <Upload className="h-4 w-4" /> Enviar arquivo
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Player chega na Fase 2</DialogTitle>
+          <DialogTitle>Enviar arquivo para "{movieTitle}"</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            <strong className="text-foreground">{title}</strong> ainda não tem arquivo de vídeo associado.
-          </p>
-          <p>
-            Na <strong className="text-foreground">Fase 2</strong> você vai poder fazer upload direto para o
-            Cloudflare R2 e reproduzir aqui mesmo, com legendas, qualidade adaptativa e progresso sincronizado.
-          </p>
-        </div>
+        <UploadDropzone movieId={movieId} onCompleted={onDone} />
       </DialogContent>
     </Dialog>
   );
