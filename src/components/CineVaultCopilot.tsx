@@ -38,7 +38,7 @@ export function CineVaultCopilot() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 40, opacity: 0 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
               className="flex h-[80vh] w-full max-w-md flex-col rounded-t-3xl border border-border bg-card shadow-elevated sm:h-[640px] sm:rounded-3xl"
             >
               <header className="flex items-center justify-between border-b border-border p-4">
