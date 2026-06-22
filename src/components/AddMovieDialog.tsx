@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Plus, Search as SearchIcon, Loader2, Check } from "lucide-react";
@@ -16,10 +16,10 @@ export function AddMovieDialog({ trigger }: { trigger?: React.ReactNode }) {
   const search = useServerFn(tmdbSearch);
   const importFn = useServerFn(tmdbImport);
 
-  // simple debounce
-  if (typeof window !== "undefined") {
-    setTimeout(() => setDebounced(q.trim()), 0);
-  }
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(q.trim()), 250);
+    return () => clearTimeout(id);
+  }, [q]);
 
   const { data: results, isFetching } = useQuery({
     queryKey: ["tmdb-search", debounced],
@@ -56,10 +56,7 @@ export function AddMovieDialog({ trigger }: { trigger?: React.ReactNode }) {
             autoFocus
             placeholder="Busque por t\u00edtulo no TMDB..."
             value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setDebounced(e.target.value.trim());
-            }}
+            onChange={(e) => setQ(e.target.value)}
             className="pl-9"
           />
         </div>
