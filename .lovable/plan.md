@@ -1,90 +1,72 @@
-Vou construir a Fase 1 do CineVault AI: foundation premium completa, com arquitetura modular preparada para as fases 2-4 (R2/streaming/IA/watch-party) sem retrabalho.
+## Fase 2 — Streaming de Vídeo (Cloudflare R2 + Player)
 
-## Stack confirmada
+Objetivo: permitir que o usuário envie arquivos de vídeo, armazene no Cloudflare R2 e assista dentro do MyVault com player premium estilo Netflix, mantendo a arquitetura plugin-first criada na Fase 1.
 
-- TanStack Start + React + TS + Tailwind + shadcn + Framer Motion
-- Lovable Cloud (Supabase) — auth, DB, RLS
-- TMDB API (precisa da sua chave)
-- PWA instalável (manifest)
-- Arquitetura: camadas `domain/`, `services/`, `repositories/`, `providers/storage/`
+### 1. Cloudflare R2 — Storage Provider
 
-## Design System
+- Implementar `R2StorageProvider` em `src/lib/providers/r2.server.ts` cumprindo a interface `StorageProvider` já definida.
+- Operações: `initUpload` (URL pré-assinada PUT, multipart para arquivos grandes), `getStreamSource` (URL assinada com `Range` support), `generateSignedUrl`, `delete`.
+- Usar AWS SDK v3 S3 client apontando para endpoint R2 (compatível S3).
+- Registrar provider no registry e tornar `r2` o default quando as credenciais existirem.
 
-Tema escuro premium estilo Netflix/Apple TV:
+Secrets necessários (solicitados via add_secret após sua confirmação):
+`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` (opcional, para CDN custom).
 
-- BG: `oklch(0.13 0.01 270)` near-black com gradient sutil
-- Surface: `oklch(0.18 0.012 270)`
-- Primary (accent): `oklch(0.62 0.22 25)` vermelho cinematográfico
-- Tipografia: Inter (UI) + display tight tracking
-- Cards grandes com hover scale + glow, blur effects, skeleton shimmer
+### 2. Upload de arquivos
 
-## Banco de dados (migration única)
+- Server functions em `src/lib/uploads.functions.ts`:
+  - `createUploadIntent({ filename, size, mimeType, movieId? })` → grava linha em `uploads` (status `pending`), retorna URL assinada + `storageKey`.
+  - `completeUpload({ uploadId, movieId })` → marca upload como `completed`, atualiza `movies.storage_key`, `storage_provider='r2'`, `file_size`, `mime_type`, `duration` (extraído depois).
+  - `abortUpload({ uploadId })` para limpeza.
+- Componente `UploadDropzone` (em `src/components/UploadDropzone.tsx`) com:
+  - Drag & drop + seleção manual
+  - Upload direto do browser para R2 via `fetch(PUT)` com progresso
+  - Multipart automático para arquivos > 100 MB
+  - Pareamento opcional com um filme existente ou criação a partir do TMDB
+- Página `/uploads` reescrita para listar uploads em andamento, falhos e concluídos.
 
-Tabelas com RLS por `user_id`:
+### 3. Player de vídeo
 
-- `profiles` (perfis múltiplos por usuário)
-- `movies` (metadados TMDB + tmdb_id, hash do arquivo futuro, storage_provider, storage_key)
-- `genres`, `movie_genres`
-- `people` (atores/diretores), `movie_credits`
-- `collections` (franquias TMDB + smart collections), `collection_movies`
-- `favorites`, `watchlists`, `watchlist_movies`
-- `watch_history` (progresso, last_position, device)
-- `user_settings`
-- `app_role` enum + `user_roles` + `has_role()` (security definer)
-- `invites` (preparado fase 4)
+- Componente `<MyVaultPlayer />` em `src/components/player/MyVaultPlayer.tsx` baseado em `video.js` (HLS-ready) ou `<video>` nativo com controles custom — escolha definida pela tabela de trade-offs abaixo.
+- Recursos:
+  - Play/Pause, seek bar com pré-visualização de tempo, volume, fullscreen, PiP, atalhos de teclado (espaço, ←/→, F, M)
+  - Auto-hide de controles, overlay de título e episódio
+  - Botão "Continuar de X:XX" quando há histórico
+  - Persistência de progresso a cada 5s via `recordPlaybackProgress` server fn (atualiza `watch_history`)
+  - Marcação automática como "assistido" em ≥90%
+- Rota `_authenticated/watch.$movieId.tsx` em tela cheia, sem sidebar, com fade-out do header.
+- Botão "Assistir" na página do filme (`movie.$movieId.tsx`) só aparece quando `storage_key` existe; caso contrário mantém CTA "Enviar arquivo".
 
-Storage abstrato: coluna `storage_provider` enum (`tmdb_only` | `r2` | `gdrive` | `local`) — fase 1 só `tmdb_only`.
+### 4. Schema — pequenas extensões
 
-## Edge / Server functions
+Migration adicionando à tabela `movies` (se ainda não existem) e nova tabela `uploads`:
 
-- `tmdb-search` — busca TMDB
-- `tmdb-import` — importa filme completo (detalhes, créditos, coleção)
-- `recommendations` — stub que retorna shuffle (substituído por IA fase 3)
+- `movies`: `storage_key text`, `file_size bigint`, `mime_type text`, `duration_seconds int` (alguns já existem — a migration faz `add column if not exists`).
+- `uploads`: `id`, `user_id`, `movie_id` (nullable), `filename`, `size`, `mime_type`, `storage_provider`, `storage_key`, `status` (`pending|uploading|completed|failed|aborted`), `bytes_uploaded`, `error_message`, timestamps. RLS por `user_id` + GRANTs.
 
-TMDB key vai como secret server-side (`TMDB_API_KEY`).
+### 5. "Continue Assistindo" real
 
-## Rotas (TanStack file-based)
+- Atualizar carrossel do dashboard para consumir `watch_history` com `progress_seconds < duration_seconds * 0.9`.
+- Ordenar por `last_watched_at desc`, limitar a 12.
 
-- `/` landing (hero, features, CTA)
-- `/auth` login/signup (email+senha + Google)
-- `/_authenticated/app` dashboard (carrosséis: Continuar, Recentes, Favoritos, Lista, Não assistidos, Coleções, Aleatórios)
-- `/_authenticated/library` grid com filtros/ordenação/visualizações
-- `/_authenticated/search` busca instantânea (TMDB + biblioteca)
-- `/_authenticated/movie/$id` página do filme (hero backdrop, poster, ações, semelhantes)
-- `/_authenticated/collections` + `/collections/$id`
-- `/_authenticated/favorites`
-- `/_authenticated/lists` + `/lists/$id`
-- `/_authenticated/history`
-- `/_authenticated/uploads` (placeholder "Fase 2 — em breve")
-- `/_authenticated/settings` (tema, idioma, perfis, qualidade padrão)
-- `/_authenticated/discover` "Hoje para Você" (stub determinístico)
-- `/_authenticated/stats`
-- `/_authenticated/admin` (gated por `has_role('admin')`)
+### 6. Decisões a confirmar
 
-## Componentes-chave
+```text
+Player:        video.js (HLS-ready, +120KB) | <video> + controles custom (leve, sem HLS)
+Multipart:     5 MB part, paralelismo 4     | 10 MB part, paralelismo 6
+Limite upload: 5 GB por arquivo             | sem limite (dependente do plano R2)
+```
 
-- `<AppSidebar/>` colapsável com active state
-- `<MovieCard/>` (poster, hover info, ações rápidas)
-- `<MovieCarousel/>` horizontal scroll com setas
-- `<MovieHero/>` backdrop fullbleed com gradiente
-- `<AddMovieDialog/>` busca TMDB → adiciona à biblioteca
-- `<CineVaultCopilot/>` FAB (UI pronta, mensagem "ativando na fase 3")
-- `<PlayerPlaceholder/>` botão "Assistir" mostra modal explicando fase 2
+### Detalhes técnicos
 
-## Player / Upload / Watch Party / Download Offline / IA
+- Todas as chamadas R2 acontecem em arquivos `.server.ts` carregados via `await import(...)` dentro de handlers (regra do template TanStack Start).
+- URLs assinadas com TTL curto (15 min para playback, 1 h para upload), regeradas pelo player ao chegar perto da expiração.
+- Sem Edge Function: tudo via `createServerFn` autenticado por `requireSupabaseAuth`.
+- Sem mudança em telas da Fase 1 além de Dashboard (Continue Assistindo), página do filme (botão Assistir) e `/uploads`.
 
-UI presente mas com estados "em breve" elegantes — sem mocks falsos de funcionalidade que não existe. Estrutura de dados já comporta progresso, posições, salas.
+### Fora desta fase (próximas)
 
-## Fora desta fase (entram em fases seguintes)
-
-- Player real, upload R2, streaming HLS — Fase 2
-- Copiloto IA real, busca em linguagem natural — Fase 3
-- Watch Party, download offline, comentários, reações — Fase 4
-
-## O que preciso de você
-
-**Chave da TMDB API** (gratuita em themoviedb.org → Settings → API). Vou pedir via `add_secret` quando começar a integração TMDB. Se não tiver agora, construo tudo e ligamos a TMDB depois — a UI roda com biblioteca vazia + "adicione seu primeiro filme".
-
-Posso prosseguir?
-
-Está quase perfeito, mas quero que o projeto de chama MyVault, e considere essas considerações finais:Toda funcionalidade nova deve ser implementada por meio de módulos independentes, sem alterar componentes existentes sempre que possível. Adotar arquitetura plugin-first, utilizando providers e interfaces para Storage, Metadata, AI, Player e Social, permitindo adicionar novos serviços ou substituir implementações sem refatoração do núcleo do sistema. Priorizar extensibilidade, performance e manutenibilidade sobre velocidade de implementação.”
+- Transcodificação automática para HLS multi-bitrate
+- Legendas (SRT/VTT) e múltiplos áudios
+- Copiloto IA (Fase 3)
+- Outros providers (Google Drive, OneDrive, NAS)

@@ -226,11 +226,14 @@ export type Database = {
           added_at: string
           audio_codec: string | null
           backdrop_path: string | null
+          duration_seconds: number | null
           file_hash: string | null
+          file_size: number | null
           file_size_bytes: number | null
           id: string
           imdb_id: string | null
           is_archived: boolean
+          mime_type: string | null
           origin_country: string | null
           original_language: string | null
           original_title: string | null
@@ -258,11 +261,14 @@ export type Database = {
           added_at?: string
           audio_codec?: string | null
           backdrop_path?: string | null
+          duration_seconds?: number | null
           file_hash?: string | null
+          file_size?: number | null
           file_size_bytes?: number | null
           id?: string
           imdb_id?: string | null
           is_archived?: boolean
+          mime_type?: string | null
           origin_country?: string | null
           original_language?: string | null
           original_title?: string | null
@@ -290,11 +296,14 @@ export type Database = {
           added_at?: string
           audio_codec?: string | null
           backdrop_path?: string | null
+          duration_seconds?: number | null
           file_hash?: string | null
+          file_size?: number | null
           file_size_bytes?: number | null
           id?: string
           imdb_id?: string | null
           is_archived?: boolean
+          mime_type?: string | null
           origin_country?: string | null
           original_language?: string | null
           original_title?: string | null
@@ -361,6 +370,62 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      uploads: {
+        Row: {
+          bytes_uploaded: number
+          created_at: string
+          error_message: string | null
+          filename: string
+          id: string
+          mime_type: string
+          movie_id: string | null
+          size: number
+          status: Database["public"]["Enums"]["upload_status"]
+          storage_key: string
+          storage_provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bytes_uploaded?: number
+          created_at?: string
+          error_message?: string | null
+          filename: string
+          id?: string
+          mime_type: string
+          movie_id?: string | null
+          size: number
+          status?: Database["public"]["Enums"]["upload_status"]
+          storage_key: string
+          storage_provider?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bytes_uploaded?: number
+          created_at?: string
+          error_message?: string | null
+          filename?: string
+          id?: string
+          mime_type?: string
+          movie_id?: string | null
+          size?: number
+          status?: Database["public"]["Enums"]["upload_status"]
+          storage_key?: string
+          storage_provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uploads_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -588,6 +653,12 @@ export type Database = {
       app_role: "admin" | "user"
       credit_role: "cast" | "director" | "writer" | "producer"
       storage_provider: "tmdb_only" | "r2" | "gdrive" | "onedrive" | "local"
+      upload_status:
+        | "pending"
+        | "uploading"
+        | "completed"
+        | "failed"
+        | "aborted"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -718,6 +789,7 @@ export const Constants = {
       app_role: ["admin", "user"],
       credit_role: ["cast", "director", "writer", "producer"],
       storage_provider: ["tmdb_only", "r2", "gdrive", "onedrive", "local"],
+      upload_status: ["pending", "uploading", "completed", "failed", "aborted"],
     },
   },
 } as const
