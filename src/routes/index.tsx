@@ -93,9 +93,7 @@ function Hero() {
           className="text-balance mt-6 text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl"
         >
           Sua biblioteca de filmes,{" "}
-          <span className="bg-gradient-primary bg-clip-text text-transparent">
-            organizada sozinha.
-          </span>
+          <span className="text-primary">organizada sozinha.</span>
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 16 }}

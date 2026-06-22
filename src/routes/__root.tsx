@@ -24,7 +24,7 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-hero px-4">
       <div className="max-w-md text-center">
-        <h1 className="bg-gradient-primary bg-clip-text text-8xl font-bold text-transparent">404</h1>
+        <h1 className="text-8xl font-bold text-primary">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           O conteúdo que você procura não está nesta sala de cinema.
