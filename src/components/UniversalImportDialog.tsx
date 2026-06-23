@@ -29,7 +29,7 @@ export function UniversalImportDialog({
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="tmdb"><Film className="mr-1 h-3.5 w-3.5" />TMDB</TabsTrigger>
             <TabsTrigger value="upload"><Cloud className="mr-1 h-3.5 w-3.5" />Upload</TabsTrigger>
-            <TabsTrigger value="archive"><Hdd className="mr-1 h-3.5 w-3.5" />Archive</TabsTrigger>
+            <TabsTrigger value="archive"><HardDrive className="mr-1 h-3.5 w-3.5" />Archive</TabsTrigger>
             <TabsTrigger value="url"><LinkIcon className="mr-1 h-3.5 w-3.5" />URL</TabsTrigger>
           </TabsList>
           <TabsContent value="tmdb" className="mt-4">
