@@ -135,6 +135,17 @@ export const getMovieStream = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !movie) throw new Error("Filme não encontrado.");
     if (!movie.storage_key) throw new Error("Este filme ainda não possui arquivo de vídeo.");
+    // Direct-URL sources (Internet Archive, public URL) stream straight from origin.
+    const provider = movie.storage_provider as string | null;
+    if (provider === "internet_archive" || provider === "url") {
+      return {
+        url: movie.storage_key,
+        mimeType: movie.mime_type ?? "video/mp4",
+        expiresAt: null,
+        title: movie.title,
+        durationSeconds: movie.duration_seconds ?? null,
+      };
+    }
     const { R2StorageProvider } = await import("./providers/r2.server");
     const src = await R2StorageProvider.getStreamSource(movie.storage_key);
     return {
