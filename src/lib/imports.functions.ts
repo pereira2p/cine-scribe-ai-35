@@ -110,7 +110,7 @@ export const createMovieFromUrl = createServerFn({ method: "POST" })
         release_year: data.year ?? null,
         overview: data.overview ?? null,
         poster_path: data.posterUrl ?? null,
-        storage_provider: data.source,
+        storage_provider: data.source as unknown as "r2",
         storage_key: data.url,
         mime_type: data.mimeType,
         file_size: data.size ?? null,
