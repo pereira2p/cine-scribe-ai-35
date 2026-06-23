@@ -1,72 +1,94 @@
-## Fase 2 — Streaming de Vídeo (Cloudflare R2 + Player)
+## Fase 2 — CineVault Premium (Mobile-First + Plugin Architecture)
 
-Objetivo: permitir que o usuário envie arquivos de vídeo, armazene no Cloudflare R2 e assista dentro do MyVault com player premium estilo Netflix, mantendo a arquitetura plugin-first criada na Fase 1.
+A Fase 1 + 2.0 (R2 + player básico) já está pronta. Esta fase eleva o app ao padrão Netflix/Apple TV/Plex, mobile-first, com arquitetura plugin-first para tudo que pode crescer.
 
-### 1. Cloudflare R2 — Storage Provider
+Vou entregar em **4 sub-fases** dentro deste plano para manter qualidade. Posso executar tudo numa sequência só após sua aprovação.
 
-- Implementar `R2StorageProvider` em `src/lib/providers/r2.server.ts` cumprindo a interface `StorageProvider` já definida.
-- Operações: `initUpload` (URL pré-assinada PUT, multipart para arquivos grandes), `getStreamSource` (URL assinada com `Range` support), `generateSignedUrl`, `delete`.
-- Usar AWS SDK v3 S3 client apontando para endpoint R2 (compatível S3).
-- Registrar provider no registry e tornar `r2` o default quando as credenciais existirem.
+---
 
-Secrets necessários (solicitados via add_secret após sua confirmação):
-`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` (opcional, para CDN custom).
+### Sub-fase 2A — Fundação Mobile-First & Navegação
 
-### 2. Upload de arquivos
+- **Bottom Navigation** (`<BottomNav />`): Home / Buscar / ➕ / Biblioteca / Favoritos. Visível em `< md`. Sidebar (já existe) só em `≥ md`.
+- **Layout `_authenticated/route.tsx`** ajustado: detecta viewport, alterna sidebar ↔ bottom nav, safe-area iOS (`env(safe-area-inset-*)`).
+- Rota raiz `/` ainda decide: autenticado → `/app`, anônimo → `/auth`.
+- Remoção de qualquer resquício de "landing".
+- Design tokens revisitados em `src/styles.css`: glass tokens (`--glass-bg`, `--glass-border`), gradient overlays, motion durations, blur layers — tudo via `oklch` semântico, sem cores hardcoded.
+- Skeleton components reutilizáveis (`<PosterSkeleton />`, `<RowSkeleton />`).
 
-- Server functions em `src/lib/uploads.functions.ts`:
-  - `createUploadIntent({ filename, size, mimeType, movieId? })` → grava linha em `uploads` (status `pending`), retorna URL assinada + `storageKey`.
-  - `completeUpload({ uploadId, movieId })` → marca upload como `completed`, atualiza `movies.storage_key`, `storage_provider='r2'`, `file_size`, `mime_type`, `duration` (extraído depois).
-  - `abortUpload({ uploadId })` para limpeza.
-- Componente `UploadDropzone` (em `src/components/UploadDropzone.tsx`) com:
-  - Drag & drop + seleção manual
-  - Upload direto do browser para R2 via `fetch(PUT)` com progresso
-  - Multipart automático para arquivos > 100 MB
-  - Pareamento opcional com um filme existente ou criação a partir do TMDB
-- Página `/uploads` reescrita para listar uploads em andamento, falhos e concluídos.
+### Sub-fase 2B — Plugin Architecture (ImportProvider + StorageProvider++)
 
-### 3. Player de vídeo
+Novas interfaces em `src/lib/providers/`:
 
-- Componente `<MyVaultPlayer />` em `src/components/player/MyVaultPlayer.tsx` baseado em `video.js` (HLS-ready) ou `<video>` nativo com controles custom — escolha definida pela tabela de trade-offs abaixo.
-- Recursos:
-  - Play/Pause, seek bar com pré-visualização de tempo, volume, fullscreen, PiP, atalhos de teclado (espaço, ←/→, F, M)
-  - Auto-hide de controles, overlay de título e episódio
-  - Botão "Continuar de X:XX" quando há histórico
-  - Persistência de progresso a cada 5s via `recordPlaybackProgress` server fn (atualiza `watch_history`)
-  - Marcação automática como "assistido" em ≥90%
-- Rota `_authenticated/watch.$movieId.tsx` em tela cheia, sem sidebar, com fade-out do header.
-- Botão "Assistir" na página do filme (`movie.$movieId.tsx`) só aparece quando `storage_key` existe; caso contrário mantém CTA "Enviar arquivo".
+- **`ImportProvider`** (`import.ts`):
+  ```ts
+  analyze(input) → { kind, candidates[] }
+  preview(ref) → { title?, poster?, files[] }
+  stream(ref) → StreamSource
+  download(ref) → ReadableStream
+  import(ref, opts) → { movieId, uploadId? }
+  ```
+- Implementações:
+  - `LocalUploadProvider` (já existe via R2 — refatorado para `ImportProvider`)
+  - `R2Provider` (já existe)
+  - `UrlProvider` (URL direta `.mp4/.mkv/.webm`)
+  - `InternetArchiveProvider` (cola link `archive.org/details/...`, usa API pública `/metadata/{id}`, lista arquivos, escolhe melhor MP4)
+  - Stubs prontos com UI "Em breve": Google Drive, OneDrive, Dropbox, NAS, Pasta sincronizada
+- **`UniversalImportDialog`** unifica todos os providers numa única UI com tabs.
 
-### 4. Schema — pequenas extensões
+### Sub-fase 2C — Experiência: Home, Discover, Player, Cast, IA
 
-Migration adicionando à tabela `movies` (se ainda não existem) e nova tabela `uploads`:
+- **Home revisada**: carrosséis reais com dados — Continuar Assistindo, Recém-Adicionados, Favoritos, Minha Lista, Coleções, Hoje Para Você, Aleatórios. Hero rotativo no topo (top-rated não assistido).
+- **Discover** (`/discover`): Filme do Dia, Esquecido (não tocado em 90d), Continuação de Saga (próximo da `collection`), Bem-Avaliado Não Assistido, Aleatório, Por Humor (tags).
+- **Player premium** (`MyVaultPlayer` v2):
+  - Gestos mobile: double-tap esquerda/direita ±10s, swipe vertical (volume/brilho), pinch zoom
+  - PiP, fullscreen, legendas (track VTT), troca de áudio (placeholder), velocidade
+  - Botão **Transmitir** (Web `RemotePlayback` + stubs AirPlay/Chromecast)
+- **CineVault AI** (`<CopilotFAB />`): botão flutuante global, sheet com chat, server fn `askCopilot` usando **Lovable AI Gateway** (`google/gemini-2.5-flash`, gratuito até 13/out/2025) com contexto da biblioteca do usuário (top 50 + ratings + gêneros).
+- **Watch Party**: tela com "Em breve" + arquitetura de sala (tabela `watch_parties` criada mas sem realtime ainda).
+- **Download Offline**: UI + service worker stub + tabela `offline_downloads`. Download real adiado.
 
-- `movies`: `storage_key text`, `file_size bigint`, `mime_type text`, `duration_seconds int` (alguns já existem — a migration faz `add column if not exists`).
-- `uploads`: `id`, `user_id`, `movie_id` (nullable), `filename`, `size`, `mime_type`, `storage_provider`, `storage_key`, `status` (`pending|uploading|completed|failed|aborted`), `bytes_uploaded`, `error_message`, timestamps. RLS por `user_id` + GRANTs.
+### Sub-fase 2D — Dados, Jobs, Assets, Tags, Activity, Stats
 
-### 5. "Continue Assistindo" real
+Migration única adicionando:
 
-- Atualizar carrossel do dashboard para consumir `watch_history` com `progress_seconds < duration_seconds * 0.9`.
-- Ordenar por `last_watched_at desc`, limitar a 12.
+- `background_jobs` (id, user_id, type, status, progress, payload jsonb, error, timestamps)
+- `movie_assets` (movie_id, kind enum: poster/backdrop/logo/banner/trailer/thumbnail, url, source, is_default)
+- `smart_tags` + `movie_smart_tags` (tags como Mind-blowing, Plot Twist, Cult, Slow Burn…)
+- `activity_feed` (user_id, kind, payload, created_at)
+- `watch_parties` (room_code, host_user_id, movie_id, status)
+- `offline_downloads` (user_id, movie_id, quality, status, bytes)
+- `viewer_profiles` já existe (Fase 1) — adicionar trigger para registrar no activity feed
+- Todas com `GRANT` + RLS por `user_id` + `service_role`
 
-### 6. Decisões a confirmar
+**Stats** (`/stats` reescrita): tempo assistido, contagem, gênero/diretor/ator favoritos (queries reais), heatmap (recharts), streak.
 
-```text
-Player:        video.js (HLS-ready, +120KB) | <video> + controles custom (leve, sem HLS)
-Multipart:     5 MB part, paralelismo 4     | 10 MB part, paralelismo 6
-Limite upload: 5 GB por arquivo             | sem limite (dependente do plano R2)
+**Activity Feed** componente lateral na Home.
+
+---
+
+### Trade-offs / decisões
+
+```
+Internet Archive:  só MP4 direto (simples)    | + HLS/torrent (complexo, fora do MVP)
+Copiloto IA:       Gemini 2.5 Flash (grátis)  | GPT-5 (pago, melhor qualidade)
+Watch Party:       só UI "em breve"            | realtime já no MVP (+2 dias)
+Download offline:  IndexedDB + SW (PWA)        | só UI no MVP
+Player gestos:     Hammer.js (8KB)             | handlers custom (mais leve, menos robusto)
+Cast:              só Web RemotePlayback API   | + Chromecast SDK (precisa AppID Google)
 ```
 
-### Detalhes técnicos
+### Fora desta fase
 
-- Todas as chamadas R2 acontecem em arquivos `.server.ts` carregados via `await import(...)` dentro de handlers (regra do template TanStack Start).
-- URLs assinadas com TTL curto (15 min para playback, 1 h para upload), regeradas pelo player ao chegar perto da expiração.
-- Sem Edge Function: tudo via `createServerFn` autenticado por `requireSupabaseAuth`.
-- Sem mudança em telas da Fase 1 além de Dashboard (Continue Assistindo), página do filme (botão Assistir) e `/uploads`.
+- Transcodificação HLS multi-bitrate
+- Capacitor (APK/IPA) — fica para Fase 3 (só prepara PWA + manifest agora)
+- Chromecast/AirPlay nativos completos
+- Realtime Watch Party funcional
+- Download offline real
 
-### Fora desta fase (próximas)
+### Pergunta antes de executar
 
-- Transcodificação automática para HLS multi-bitrate
-- Legendas (SRT/VTT) e múltiplos áudios
-- Copiloto IA (Fase 3)
-- Outros providers (Google Drive, OneDrive, NAS)
+1. **Posso seguir com Gemini 2.5 Flash** (gratuito via Lovable AI) para o Copiloto? Sem custo adicional, sem secret.
+2. **Watch Party / Download offline**: confirma só UI "em breve" no MVP?
+3. **Gestos do player**: posso usar handlers custom (sem dependência)?
+
+Se a resposta for "vai com tudo, decide você", executo com: Gemini Flash, UI-only para Watch Party/Download, gestos custom.
