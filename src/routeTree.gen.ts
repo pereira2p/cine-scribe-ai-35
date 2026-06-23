@@ -13,6 +13,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWatchPartyRouteImport } from './routes/_authenticated/watch-party'
 import { Route as AuthenticatedUploadsRouteImport } from './routes/_authenticated/uploads'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -45,6 +46,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedWatchPartyRoute = AuthenticatedWatchPartyRouteImport.update({
+  id: '/watch-party',
+  path: '/watch-party',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedUploadsRoute = AuthenticatedUploadsRouteImport.update({
   id: '/uploads',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/uploads': typeof AuthenticatedUploadsRoute
+  '/watch-party': typeof AuthenticatedWatchPartyRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
   '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/uploads': typeof AuthenticatedUploadsRoute
+  '/watch-party': typeof AuthenticatedWatchPartyRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
   '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/uploads': typeof AuthenticatedUploadsRoute
+  '/_authenticated/watch-party': typeof AuthenticatedWatchPartyRoute
   '/_authenticated/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
   '/_authenticated/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/stats'
     | '/uploads'
+    | '/watch-party'
     | '/movie/$movieId'
     | '/watch/$movieId'
   fileRoutesByTo: FileRoutesByTo
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/stats'
     | '/uploads'
+    | '/watch-party'
     | '/movie/$movieId'
     | '/watch/$movieId'
   id:
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/stats'
     | '/_authenticated/uploads'
+    | '/_authenticated/watch-party'
     | '/_authenticated/movie/$movieId'
     | '/_authenticated/watch/$movieId'
   fileRoutesById: FileRoutesById
@@ -265,6 +277,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/watch-party': {
+      id: '/_authenticated/watch-party'
+      path: '/watch-party'
+      fullPath: '/watch-party'
+      preLoaderRoute: typeof AuthenticatedWatchPartyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/uploads': {
       id: '/_authenticated/uploads'
@@ -372,6 +391,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedUploadsRoute: typeof AuthenticatedUploadsRoute
+  AuthenticatedWatchPartyRoute: typeof AuthenticatedWatchPartyRoute
   AuthenticatedMovieMovieIdRoute: typeof AuthenticatedMovieMovieIdRoute
   AuthenticatedWatchMovieIdRoute: typeof AuthenticatedWatchMovieIdRoute
 }
@@ -388,6 +408,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedUploadsRoute: AuthenticatedUploadsRoute,
+  AuthenticatedWatchPartyRoute: AuthenticatedWatchPartyRoute,
   AuthenticatedMovieMovieIdRoute: AuthenticatedMovieMovieIdRoute,
   AuthenticatedWatchMovieIdRoute: AuthenticatedWatchMovieIdRoute,
 }
