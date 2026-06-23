@@ -6,6 +6,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CineVaultCopilot } from "@/components/CineVaultCopilot";
 import { AddMovieDialog } from "@/components/AddMovieDialog";
+import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -37,10 +38,14 @@ function AuthedShell() {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
+        <div className="hidden md:block">
+          <AppSidebar />
+        </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/70 px-3 backdrop-blur-xl sm:px-4">
-            <SidebarTrigger />
+            <div className="hidden md:block">
+              <SidebarTrigger />
+            </div>
             <form onSubmit={submitSearch} className="relative ml-1 hidden max-w-md flex-1 sm:block">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -51,17 +56,20 @@ function AuthedShell() {
               />
             </form>
             <div className="ml-auto flex items-center gap-2">
-              <AddMovieDialog />
+              <div className="hidden md:block">
+                <AddMovieDialog />
+              </div>
               <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </header>
-          <main className="min-w-0 flex-1">
+          <main className="min-w-0 flex-1 pb-20 md:pb-0">
             <Outlet />
           </main>
         </div>
         <CineVaultCopilot />
+        <BottomNav />
       </div>
     </SidebarProvider>
   );
