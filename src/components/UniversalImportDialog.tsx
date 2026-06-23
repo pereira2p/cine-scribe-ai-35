@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Link as LinkIcon, Film, Cloud, Hdd, Folder } from "lucide-react";
+import { Loader2, Link as LinkIcon, Film, Cloud, HardDrive, Folder } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,7 +36,7 @@ export function UniversalImportDialog({
             <TmdbInline />
           </TabsContent>
           <TabsContent value="upload" className="mt-4">
-            <UploadDropzone onUploaded={() => onOpenChange(false)} />
+            <UploadDropzone onCompleted={() => onOpenChange(false)} />
           </TabsContent>
           <TabsContent value="archive" className="mt-4">
             <ArchivePanel onDone={() => onOpenChange(false)} />
@@ -195,7 +195,7 @@ function ComingSoonRow() {
     { label: "Google Drive", icon: Cloud },
     { label: "OneDrive", icon: Cloud },
     { label: "Dropbox", icon: Cloud },
-    { label: "NAS", icon: Hdd },
+    { label: "NAS", icon: HardDrive },
     { label: "Pasta sync", icon: Folder },
   ];
   return (
