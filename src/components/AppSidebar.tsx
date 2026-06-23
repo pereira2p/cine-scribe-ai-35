@@ -13,6 +13,8 @@ import {
   BarChart3,
   ListChecks,
   Film,
+  Users,
+  Download,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,6 +45,8 @@ const my = [
 
 const more = [
   { to: "/uploads", label: "Uploads", icon: Upload },
+  { to: "/downloads", label: "Downloads", icon: Download },
+  { to: "/watch-party", label: "Watch Party", icon: Users },
   { to: "/stats", label: "Estat\u00edsticas", icon: BarChart3 },
   { to: "/settings", label: "Configura\u00e7\u00f5es", icon: Settings },
 ] as const;
