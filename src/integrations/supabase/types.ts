@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_feed: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          payload: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      background_jobs: {
+        Row: {
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          payload: Json
+          progress: number
+          status: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          payload?: Json
+          progress?: number
+          status?: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          payload?: Json
+          progress?: number
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       collection_movies: {
         Row: {
           added_at: string
@@ -140,6 +203,47 @@ export type Database = {
         }
         Relationships: []
       }
+      movie_assets: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          kind: Database["public"]["Enums"]["movie_asset_kind"]
+          movie_id: string
+          source: string | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          kind: Database["public"]["Enums"]["movie_asset_kind"]
+          movie_id: string
+          source?: string | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          kind?: Database["public"]["Enums"]["movie_asset_kind"]
+          movie_id?: string
+          source?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_assets_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movie_credits: {
         Row: {
           character_name: string | null
@@ -217,6 +321,39 @@ export type Database = {
             columns: ["movie_id"]
             isOneToOne: false
             referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movie_smart_tags: {
+        Row: {
+          movie_id: string
+          tag_id: string
+          user_id: string
+        }
+        Insert: {
+          movie_id: string
+          tag_id: string
+          user_id: string
+        }
+        Update: {
+          movie_id?: string
+          tag_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_smart_tags_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movie_smart_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "smart_tags"
             referencedColumns: ["id"]
           },
         ]
@@ -329,6 +466,50 @@ export type Database = {
         }
         Relationships: []
       }
+      offline_downloads: {
+        Row: {
+          bytes: number
+          created_at: string
+          id: string
+          movie_id: string
+          quality: string
+          status: string
+          total_bytes: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bytes?: number
+          created_at?: string
+          id?: string
+          movie_id: string
+          quality?: string
+          status?: string
+          total_bytes?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bytes?: number
+          created_at?: string
+          id?: string
+          movie_id?: string
+          quality?: string
+          status?: string
+          total_bytes?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_downloads_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       people: {
         Row: {
           id: number
@@ -368,6 +549,27 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      smart_tags: {
+        Row: {
+          emoji: string | null
+          id: string
+          label: string
+          slug: string
+        }
+        Insert: {
+          emoji?: string | null
+          id?: string
+          label: string
+          slug: string
+        }
+        Update: {
+          emoji?: string | null
+          id?: string
+          label?: string
+          slug?: string
         }
         Relationships: []
       }
@@ -562,6 +764,41 @@ export type Database = {
           },
         ]
       }
+      watch_parties: {
+        Row: {
+          created_at: string
+          host_user_id: string
+          id: string
+          movie_id: string | null
+          room_code: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          host_user_id: string
+          id?: string
+          movie_id?: string | null
+          room_code: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          host_user_id?: string
+          id?: string
+          movie_id?: string | null
+          room_code?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_parties_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       watchlist_movies: {
         Row: {
           added_at: string
@@ -652,6 +889,13 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       credit_role: "cast" | "director" | "writer" | "producer"
+      movie_asset_kind:
+        | "poster"
+        | "backdrop"
+        | "logo"
+        | "banner"
+        | "trailer"
+        | "thumbnail"
       storage_provider: "tmdb_only" | "r2" | "gdrive" | "onedrive" | "local"
       upload_status:
         | "pending"
@@ -788,6 +1032,14 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       credit_role: ["cast", "director", "writer", "producer"],
+      movie_asset_kind: [
+        "poster",
+        "backdrop",
+        "logo",
+        "banner",
+        "trailer",
+        "thumbnail",
+      ],
       storage_provider: ["tmdb_only", "r2", "gdrive", "onedrive", "local"],
       upload_status: ["pending", "uploading", "completed", "failed", "aborted"],
     },

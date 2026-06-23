@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw, RotateCw, Loader2 } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RotateCcw, RotateCw, Loader2, PictureInPicture2, Cast } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 
@@ -45,6 +45,55 @@ export function MyVaultPlayer({
   const [fullscreen, setFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const hideTimer = useRef<number | null>(null);
+  const lastTap = useRef<{ t: number; x: number } | null>(null);
+  const [feedback, setFeedback] = useState<{ side: "left" | "right"; key: number } | null>(null);
+
+  function handleDoubleTap(e: React.PointerEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "BUTTON" || target.closest("button")) return;
+    const v = videoRef.current;
+    if (!v) return;
+    const now = Date.now();
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const prev = lastTap.current;
+    if (prev && now - prev.t < 320 && Math.abs(prev.x - x) < 60) {
+      const side = x < rect.width / 2 ? "left" : "right";
+      v.currentTime = side === "left"
+        ? Math.max(0, v.currentTime - 10)
+        : Math.min(v.duration || v.currentTime, v.currentTime + 10);
+      setFeedback({ side, key: now });
+      lastTap.current = null;
+      showControls();
+    } else {
+      lastTap.current = { t: now, x };
+    }
+  }
+
+  async function togglePip() {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      if ((document as Document & { pictureInPictureElement?: Element }).pictureInPictureElement) {
+        await (document as Document & { exitPictureInPicture?: () => Promise<void> }).exitPictureInPicture?.();
+      } else if ((v as HTMLVideoElement & { requestPictureInPicture?: () => Promise<void> }).requestPictureInPicture) {
+        await (v as HTMLVideoElement & { requestPictureInPicture: () => Promise<void> }).requestPictureInPicture();
+      }
+    } catch {
+      /* noop */
+    }
+  }
+
+  async function requestCast() {
+    const v = videoRef.current as HTMLVideoElement & {
+      remote?: { prompt?: () => Promise<void> };
+    };
+    if (v?.remote?.prompt) {
+      try { await v.remote.prompt(); return; } catch { /* noop */ }
+    }
+    // eslint-disable-next-line no-alert
+    alert("Transmissão indisponível neste dispositivo. AirPlay/Chromecast nativos chegam em breve.");
+  }
 
   const showControls = useCallback(() => {
     setControlsVisible(true);
@@ -141,6 +190,7 @@ export function MyVaultPlayer({
       onMouseLeave={() => {
         if (videoRef.current && !videoRef.current.paused) setControlsVisible(false);
       }}
+      onPointerDown={handleDoubleTap}
       onClick={(e) => {
         if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "VIDEO") togglePlay();
       }}
@@ -171,6 +221,18 @@ export function MyVaultPlayer({
       {buffering && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <Loader2 className="h-10 w-10 animate-spin text-white/80" />
+        </div>
+      )}
+
+      {feedback && (
+        <div
+          key={feedback.key}
+          className={`pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/70 px-4 py-3 text-sm text-white animate-in fade-in zoom-in duration-200 ${
+            feedback.side === "left" ? "left-[15%]" : "right-[15%]"
+          }`}
+          onAnimationEnd={() => setTimeout(() => setFeedback(null), 350)}
+        >
+          {feedback.side === "left" ? "⏪ -10s" : "+10s ⏩"}
         </div>
       )}
 
@@ -260,6 +322,12 @@ export function MyVaultPlayer({
             {formatTime(current)} / {formatTime(duration)}
           </span>
           <div className="ml-auto flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={requestCast} className="hidden text-white hover:bg-white/10 sm:inline-flex" title="Transmitir">
+              <Cast className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={togglePip} className="hidden text-white hover:bg-white/10 sm:inline-flex" title="Picture in Picture">
+              <PictureInPicture2 className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="text-white hover:bg-white/10">
               {fullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </Button>
