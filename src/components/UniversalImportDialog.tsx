@@ -133,9 +133,20 @@ function LinkPanel({ onDone }: { onDone: () => void }) {
   );
 }
 
-type LinkResult =
-  | { kind: "archive"; data: Awaited<ReturnType<typeof archiveAnalyze>> }
-  | { kind: "url"; data: Awaited<ReturnType<typeof urlAnalyze>> };
+interface ArchiveData {
+  id: string;
+  title: string;
+  year?: number;
+  description?: string;
+  files: Array<{ name: string; url: string; format: string; size?: number; duration?: number }>;
+}
+interface UrlData {
+  url: string;
+  mimeType: string;
+  size?: number;
+  name: string;
+}
+type LinkResult = { kind: "archive"; data: ArchiveData } | { kind: "url"; data: UrlData };
 
 function ResultPanel({
   result,
