@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Sparkles, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MovieCarousel } from "@/components/MovieCarousel";
-import { AddMovieDialog } from "@/components/AddMovieDialog";
+import { UniversalSearchBar } from "@/components/UniversalSearchBar";
 import type { MovieCardData } from "@/components/MovieCard";
 
 export const Route = createFileRoute("/_authenticated/app")({
@@ -25,10 +23,6 @@ function Dashboard() {
   const { data: recent, isLoading } = useQuery({
     queryKey: ["movies", "recent"],
     queryFn: () => listMovies("added_at"),
-  });
-  const { data: topRated } = useQuery({
-    queryKey: ["movies", "top-rated"],
-    queryFn: () => listMovies("vote_average"),
   });
   const { data: continueWatching } = useQuery({
     queryKey: ["continue"],
@@ -55,78 +49,38 @@ function Dashboard() {
     },
   });
 
-  const featured = recent?.[0];
-
   return (
-    <div className="pb-16">
-      {featured ? <FeaturedHero movie={featured} /> : <EmptyHero hasAnyMovie={!isLoading && (recent?.length ?? 0) === 0} />}
-      <div className="mx-auto max-w-[1800px] space-y-10 px-4 pt-8 sm:px-6 lg:px-10">
-        <MovieCarousel
-          title="Continue assistindo"
-          movies={continueWatching ?? []}
-          loading={!continueWatching}
-        />
+    <div className="pb-20">
+      <section className="relative isolate overflow-hidden px-4 pt-16 pb-10 sm:px-6 sm:pt-24 sm:pb-14">
+        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-hero opacity-60" />
+        <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_50%_-10%,hsl(var(--primary)/0.18),transparent_60%)]" />
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">CineVault</p>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
+            O que você quer assistir hoje?
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+            Pesquise por título, diretor, gênero, cole um link ou descreva o que está procurando.
+          </p>
+        </div>
+        <div className="mt-8">
+          <UniversalSearchBar autoFocus />
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1800px] space-y-10 px-4 sm:px-6 lg:px-10">
+        {(continueWatching?.length ?? 0) > 0 && (
+          <MovieCarousel title="Continue assistindo" movies={continueWatching ?? []} />
+        )}
         <MovieCarousel
           title="Recém adicionados"
           subtitle="O mais novo do seu cinema"
           movies={recent ?? []}
           loading={isLoading}
-          emptyHint="Adicione seu primeiro filme para começar"
+          emptyHint="Use a busca acima para adicionar seu primeiro filme"
         />
-        <MovieCarousel
-          title="Melhores avaliados"
-          subtitle="Top da sua biblioteca"
-          movies={topRated ?? []}
-        />
-        <MovieCarousel
-          title="Favoritos"
-          movies={favorites ?? []}
-        />
+        {(favorites?.length ?? 0) > 0 && <MovieCarousel title="Favoritos" movies={favorites ?? []} />}
       </div>
     </div>
-  );
-}
-
-function FeaturedHero({ movie }: { movie: MovieCardData & { backdrop_path?: string | null; overview?: string | null } }) {
-  return (
-    <section className="relative h-[68vh] min-h-[460px] w-full overflow-hidden">
-      {movie.backdrop_path && (
-        <img src={movie.backdrop_path} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      )}
-      <div className="absolute inset-0 bg-backdrop-fade" />
-      <div className="absolute inset-0 bg-backdrop-bottom" />
-      <div className="relative z-10 flex h-full max-w-2xl flex-col justify-end gap-4 px-4 pb-16 sm:px-10">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/40 px-3 py-1 text-xs backdrop-blur">
-            <Sparkles className="h-3 w-3 text-primary" /> Em destaque na sua biblioteca
-          </div>
-          <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-6xl">{movie.title}</h1>
-          {movie.overview && (
-            <p className="mt-3 line-clamp-3 max-w-xl text-sm text-muted-foreground sm:text-base">{movie.overview}</p>
-          )}
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-function EmptyHero({ hasAnyMovie }: { hasAnyMovie: boolean }) {
-  return (
-    <section className="relative flex h-[60vh] min-h-[420px] w-full items-center justify-center overflow-hidden bg-gradient-hero">
-      <div className="relative z-10 mx-auto max-w-xl px-6 text-center">
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-primary shadow-glow">
-          <Plus className="h-6 w-6" />
-        </div>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Sua biblioteca está esperando.</h1>
-        <p className="mt-3 text-muted-foreground">
-          {hasAnyMovie
-            ? "Adicione seu primeiro filme — a IA cuida da capa, elenco e organização."
-            : "Carregando..."}
-        </p>
-        <div className="mt-6 flex justify-center">
-          <AddMovieDialog />
-        </div>
-      </div>
-    </section>
   );
 }
