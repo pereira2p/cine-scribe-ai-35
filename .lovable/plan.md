@@ -1,94 +1,182 @@
-## Fase 2 — CineVault Premium (Mobile-First + Plugin Architecture)
+# Fase 3 — CineVault MVP utilizável hoje
 
-A Fase 1 + 2.0 (R2 + player básico) já está pronta. Esta fase eleva o app ao padrão Netflix/Apple TV/Plex, mobile-first, com arquitetura plugin-first para tudo que pode crescer.
+Foco absoluto: **Pesquisar → Adicionar → Ver na biblioteca → Assistir**, sem erros, com uma IA central que entende qualquer entrada do usuário.
 
-Vou entregar em **4 sub-fases** dentro deste plano para manter qualidade. Posso executar tudo numa sequência só após sua aprovação.
-
----
-
-### Sub-fase 2A — Fundação Mobile-First & Navegação
-
-- **Bottom Navigation** (`<BottomNav />`): Home / Buscar / ➕ / Biblioteca / Favoritos. Visível em `< md`. Sidebar (já existe) só em `≥ md`.
-- **Layout `_authenticated/route.tsx`** ajustado: detecta viewport, alterna sidebar ↔ bottom nav, safe-area iOS (`env(safe-area-inset-*)`).
-- Rota raiz `/` ainda decide: autenticado → `/app`, anônimo → `/auth`.
-- Remoção de qualquer resquício de "landing".
-- Design tokens revisitados em `src/styles.css`: glass tokens (`--glass-bg`, `--glass-border`), gradient overlays, motion durations, blur layers — tudo via `oklch` semântico, sem cores hardcoded.
-- Skeleton components reutilizáveis (`<PosterSkeleton />`, `<RowSkeleton />`).
-
-### Sub-fase 2B — Plugin Architecture (ImportProvider + StorageProvider++)
-
-Novas interfaces em `src/lib/providers/`:
-
-- **`ImportProvider`** (`import.ts`):
-  ```ts
-  analyze(input) → { kind, candidates[] }
-  preview(ref) → { title?, poster?, files[] }
-  stream(ref) → StreamSource
-  download(ref) → ReadableStream
-  import(ref, opts) → { movieId, uploadId? }
-  ```
-- Implementações:
-  - `LocalUploadProvider` (já existe via R2 — refatorado para `ImportProvider`)
-  - `R2Provider` (já existe)
-  - `UrlProvider` (URL direta `.mp4/.mkv/.webm`)
-  - `InternetArchiveProvider` (cola link `archive.org/details/...`, usa API pública `/metadata/{id}`, lista arquivos, escolhe melhor MP4)
-  - Stubs prontos com UI "Em breve": Google Drive, OneDrive, Dropbox, NAS, Pasta sincronizada
-- **`UniversalImportDialog`** unifica todos os providers numa única UI com tabs.
-
-### Sub-fase 2C — Experiência: Home, Discover, Player, Cast, IA
-
-- **Home revisada**: carrosséis reais com dados — Continuar Assistindo, Recém-Adicionados, Favoritos, Minha Lista, Coleções, Hoje Para Você, Aleatórios. Hero rotativo no topo (top-rated não assistido).
-- **Discover** (`/discover`): Filme do Dia, Esquecido (não tocado em 90d), Continuação de Saga (próximo da `collection`), Bem-Avaliado Não Assistido, Aleatório, Por Humor (tags).
-- **Player premium** (`MyVaultPlayer` v2):
-  - Gestos mobile: double-tap esquerda/direita ±10s, swipe vertical (volume/brilho), pinch zoom
-  - PiP, fullscreen, legendas (track VTT), troca de áudio (placeholder), velocidade
-  - Botão **Transmitir** (Web `RemotePlayback` + stubs AirPlay/Chromecast)
-- **CineVault AI** (`<CopilotFAB />`): botão flutuante global, sheet com chat, server fn `askCopilot` usando **Lovable AI Gateway** (`google/gemini-2.5-flash`, gratuito até 13/out/2025) com contexto da biblioteca do usuário (top 50 + ratings + gêneros).
-- **Watch Party**: tela com "Em breve" + arquitetura de sala (tabela `watch_parties` criada mas sem realtime ainda).
-- **Download Offline**: UI + service worker stub + tabela `offline_downloads`. Download real adiado.
-
-### Sub-fase 2D — Dados, Jobs, Assets, Tags, Activity, Stats
-
-Migration única adicionando:
-
-- `background_jobs` (id, user_id, type, status, progress, payload jsonb, error, timestamps)
-- `movie_assets` (movie_id, kind enum: poster/backdrop/logo/banner/trailer/thumbnail, url, source, is_default)
-- `smart_tags` + `movie_smart_tags` (tags como Mind-blowing, Plot Twist, Cult, Slow Burn…)
-- `activity_feed` (user_id, kind, payload, created_at)
-- `watch_parties` (room_code, host_user_id, movie_id, status)
-- `offline_downloads` (user_id, movie_id, quality, status, bytes)
-- `viewer_profiles` já existe (Fase 1) — adicionar trigger para registrar no activity feed
-- Todas com `GRANT` + RLS por `user_id` + `service_role`
-
-**Stats** (`/stats` reescrita): tempo assistido, contagem, gênero/diretor/ator favoritos (queries reais), heatmap (recharts), streak.
-
-**Activity Feed** componente lateral na Home.
+Tudo que não estiver 100% funcional é ocultado atrás de um selo discreto "Em desenvolvimento".
 
 ---
 
-### Trade-offs / decisões
+## 1. Limpeza da interface (remover ruído)
 
+Ocultar dos menus (sidebar + bottom nav) e bloquear rotas com tela "Em desenvolvimento":
+- Watch Party
+- Downloads offline
+- Stats (mantém só se já funcionar; senão esconde)
+- Activity Feed inline
+- Botão "Transmitir" do player (selo "em breve")
+
+Manter visível: **Home, Buscar, Biblioteca, Favoritos, Coleções, Histórico, Configurações**.
+
+Sidebar e bottom nav reduzidos ao essencial.
+
+---
+
+## 2. Nova Home — campo único universal
+
+Substituir a home atual por uma tela inspirada em Spotlight/Arc:
+
+```text
+┌────────────────────────────────────────────┐
+│                                            │
+│   O que você quer assistir hoje?           │
+│   ┌──────────────────────────────────────┐ │
+│   │ Interestelar, Nolan, um sci-fi...    │ │
+│   └──────────────────────────────────────┘ │
+│   [ Buscar com IA ]   [ Adicionar filme ] │
+│                                            │
+│   Continuar assistindo · Recém-adicionados │
+└────────────────────────────────────────────┘
 ```
-Internet Archive:  só MP4 direto (simples)    | + HLS/torrent (complexo, fora do MVP)
-Copiloto IA:       Gemini 2.5 Flash (grátis)  | GPT-5 (pago, melhor qualidade)
-Watch Party:       só UI "em breve"            | realtime já no MVP (+2 dias)
-Download offline:  IndexedDB + SW (PWA)        | só UI no MVP
-Player gestos:     Hammer.js (8KB)             | handlers custom (mais leve, menos robusto)
-Cast:              só Web RemotePlayback API   | + Chromecast SDK (precisa AppID Google)
-```
 
-### Fora desta fase
+Um único `<input>` aceita: título, diretor, ator, gênero, URL, ou pergunta em linguagem natural.
 
-- Transcodificação HLS multi-bitrate
-- Capacitor (APK/IPA) — fica para Fase 3 (só prepara PWA + manifest agora)
-- Chromecast/AirPlay nativos completos
-- Realtime Watch Party funcional
-- Download offline real
+Abaixo: dois ou três carrosséis curtos (Continuar, Recém-adicionados, Favoritos) — só aparecem se houver dados.
 
-### Pergunta antes de executar
+---
 
-1. **Posso seguir com Gemini 2.5 Flash** (gratuito via Lovable AI) para o Copiloto? Sem custo adicional, sem secret.
-2. **Watch Party / Download offline**: confirma só UI "em breve" no MVP?
-3. **Gestos do player**: posso usar handlers custom (sem dependência)?
+## 3. Universal AI Search (núcleo da Fase 3)
 
-Se a resposta for "vai com tudo, decide você", executo com: Gemini Flash, UI-only para Watch Party/Download, gestos custom.
+Criar `src/lib/search/universal.functions.ts` com **uma única server fn** `universalSearch({ query })`.
+
+Fluxo interno:
+
+1. **Classificador de intenção** (regex barata + fallback Gemini Flash):
+   - URL → roteia para provider apropriado (Archive, URL direta).
+   - Texto curto sem operadores → busca paralela em **Biblioteca + TMDB**.
+   - Frase natural ("quero um sci-fi curto", "parecido com Duna") → Gemini extrai filtros estruturados (genre, year_min, similar_to, runtime_max, person) e chama TMDB com `discover/movie`.
+2. **Execução paralela** nos providers ativos via `Promise.allSettled` (nunca quebra se um falhar).
+3. **Normalização** para `UnifiedResult { source, externalId, title, year, posterUrl, overview, rating, alreadyInLibrary, playableUrl? }`.
+4. **Ranking simples**: biblioteca primeiro, depois TMDB por popularidade, depois Archive.
+5. Erros viram aviso amigável por fonte ("Não foi possível acessar TMDB agora").
+
+Providers nesta fase:
+- ✅ Library (Supabase)
+- ✅ TMDB (search + discover)
+- ✅ Internet Archive
+- ✅ URL direta
+- 🚧 Google Drive / OneDrive / Dropbox / NAS → ficam como `available: false` no registry (não aparecem em busca, mas a interface mostra "em breve" só na tela Sistema).
+
+---
+
+## 4. Resultados unificados
+
+Página `/search?q=...` (ou inline na home após enter):
+
+Card padrão com poster, título, ano, nota, sinopse curta, **badge de origem** (Biblioteca / TMDB / Archive / URL).
+
+Botões contextuais:
+- Já está na biblioteca → **Assistir** + **Favoritar**.
+- TMDB → **Adicionar à biblioteca** (metadata-only).
+- Archive/URL → **Adicionar e assistir** (cria movie row com `storage_key=url`).
+
+---
+
+## 5. Importação ponta-a-ponta (refatoração)
+
+Garantir que **todo botão "Adicionar" funcione sem erro**:
+
+- `addFromTmdb(tmdbId)` — server fn que: busca detalhes TMDB, baixa poster/backdrop URLs (apenas referenciados, sem rehospedar), insere `movies`, `movie_genres`, `movie_credits`, registra `activity_feed`.
+- `addFromArchive({ identifier, fileName })` — usa `archiveAnalyze` existente + `createMovieFromUrl`.
+- `addFromUrl({ url, title? })` — usa `urlAnalyze` + `createMovieFromUrl`.
+
+Todos retornam `{ movieId }` e a UI:
+- toast "Filme adicionado com sucesso"
+- invalida queries de biblioteca
+- oferece ação inline "Assistir agora".
+
+Tratamento de erro centralizado (`friendlyError(e)`): mapeia mensagens técnicas para PT-BR amigável.
+
+---
+
+## 6. Player — assistir imediatamente
+
+Já existe `MyVaultPlayer` + rota `/watch/$movieId`. Garantir:
+- Filmes com `storage_key` sendo URL externa (http/https) → tocam direto, sem assinar.
+- Filmes com `storage_provider='r2'` → fluxo presigned atual.
+- MKV/MOV sem suporte nativo → mensagem amigável "Este formato pode não tocar no navegador. Tente baixar".
+
+---
+
+## 7. Universal Import Dialog (botão "Adicionar filme")
+
+Reaproveitar `UniversalImportDialog` existente, simplificar abas: **TMDB · Link · Upload**.
+- "Link" detecta automaticamente se é Archive ou URL direta (usa `universalSearch` com a URL).
+- Esconder Google Drive/OneDrive/Dropbox/NAS (mover para Sistema → "em breve").
+
+---
+
+## 8. Página Sistema (diagnóstico)
+
+Nova rota `/_authenticated/system`:
+
+| Serviço | Status | Ação |
+|---|---|---|
+| TMDB API | ✓ Online | Testar |
+| Banco de dados | ✓ Online | Testar |
+| Storage R2 | ✓ Online | Testar |
+| Internet Archive | ✓ Online | Testar |
+| Google Drive | ⏳ Em breve | — |
+| OneDrive | ⏳ Em breve | — |
+
+Cada teste é uma server fn que retorna `{ ok, latencyMs, message }`.
+
+---
+
+## 9. Mensagens de erro (UX)
+
+Helper `friendlyError(e: unknown): string` usado em todos os `onError`. Tabela de mapeamento:
+
+| Causa | Mensagem |
+|---|---|
+| fetch falhou | "Não foi possível acessar essa fonte agora." |
+| sem resultados | "Nenhum filme encontrado." |
+| 429 / rate limit | "Muitas requisições. Tente novamente em alguns segundos." |
+| 402 (Lovable AI) | "Limite da IA atingido. Tente uma busca simples." |
+| qualquer outro | "Algo deu errado. Tente novamente." |
+
+---
+
+## Detalhes técnicos
+
+**Novos arquivos:**
+- `src/lib/search/universal.functions.ts` — `universalSearch`, `addFromTmdb`, `addFromArchive` (wrappers).
+- `src/lib/search/intent.server.ts` — classificador + chamada Gemini.
+- `src/lib/errors.ts` — `friendlyError`.
+- `src/components/UniversalSearchBar.tsx` — campo da home.
+- `src/components/SearchResultCard.tsx` — card unificado.
+- `src/routes/_authenticated/system.tsx` — diagnóstico.
+
+**Modificados:**
+- `src/routes/_authenticated/app.tsx` (home) — nova UI.
+- `src/routes/_authenticated/search.tsx` — usa `universalSearch`.
+- `src/components/UniversalImportDialog.tsx` — abas reduzidas.
+- `src/components/AppSidebar.tsx` + `BottomNav.tsx` — remove links em desenvolvimento.
+- `src/routes/_authenticated/{watch-party,downloads}.tsx` — placeholder "Em desenvolvimento".
+
+**Reuso:** `tmdb.functions.ts`, `imports.functions.ts`, `copilot.functions.ts`, `MyVaultPlayer`, R2 stack — sem alterações estruturais.
+
+**IA:** `google/gemini-3-flash-preview` via Lovable AI Gateway (já configurado em `copilot.functions.ts`). Sem novos secrets.
+
+**Sem migrations** nesta fase — usa schema atual.
+
+---
+
+## Fora desta fase
+
+Watch Party real · Download offline real · Chromecast/AirPlay nativos · Comentários · Social · Capacitor · HLS · Recomendações personalizadas.
+
+Voltam após o ciclo Pesquisar→Adicionar→Assistir estar sólido.
+
+---
+
+**Posso executar?**
