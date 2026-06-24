@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWatchPartyRouteImport } from './routes/_authenticated/watch-party'
 import { Route as AuthenticatedUploadsRouteImport } from './routes/_authenticated/uploads'
+import { Route as AuthenticatedSystemRouteImport } from './routes/_authenticated/system'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
@@ -56,6 +57,11 @@ const AuthenticatedWatchPartyRoute = AuthenticatedWatchPartyRouteImport.update({
 const AuthenticatedUploadsRoute = AuthenticatedUploadsRouteImport.update({
   id: '/uploads',
   path: '/uploads',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSystemRoute = AuthenticatedSystemRouteImport.update({
+  id: '/system',
+  path: '/system',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
+  '/system': typeof AuthenticatedSystemRoute
   '/uploads': typeof AuthenticatedUploadsRoute
   '/watch-party': typeof AuthenticatedWatchPartyRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
+  '/system': typeof AuthenticatedSystemRoute
   '/uploads': typeof AuthenticatedUploadsRoute
   '/watch-party': typeof AuthenticatedWatchPartyRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
@@ -184,6 +192,7 @@ export interface FileRoutesById {
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
+  '/_authenticated/system': typeof AuthenticatedSystemRoute
   '/_authenticated/uploads': typeof AuthenticatedUploadsRoute
   '/_authenticated/watch-party': typeof AuthenticatedWatchPartyRoute
   '/_authenticated/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/stats'
+    | '/system'
     | '/uploads'
     | '/watch-party'
     | '/movie/$movieId'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/stats'
+    | '/system'
     | '/uploads'
     | '/watch-party'
     | '/movie/$movieId'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/_authenticated/search'
     | '/_authenticated/settings'
     | '/_authenticated/stats'
+    | '/_authenticated/system'
     | '/_authenticated/uploads'
     | '/_authenticated/watch-party'
     | '/_authenticated/movie/$movieId'
@@ -302,6 +314,13 @@ declare module '@tanstack/react-router' {
       path: '/uploads'
       fullPath: '/uploads'
       preLoaderRoute: typeof AuthenticatedUploadsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/system': {
+      id: '/_authenticated/system'
+      path: '/system'
+      fullPath: '/system'
+      preLoaderRoute: typeof AuthenticatedSystemRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/stats': {
@@ -410,6 +429,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
+  AuthenticatedSystemRoute: typeof AuthenticatedSystemRoute
   AuthenticatedUploadsRoute: typeof AuthenticatedUploadsRoute
   AuthenticatedWatchPartyRoute: typeof AuthenticatedWatchPartyRoute
   AuthenticatedMovieMovieIdRoute: typeof AuthenticatedMovieMovieIdRoute
@@ -428,6 +448,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
+  AuthenticatedSystemRoute: AuthenticatedSystemRoute,
   AuthenticatedUploadsRoute: AuthenticatedUploadsRoute,
   AuthenticatedWatchPartyRoute: AuthenticatedWatchPartyRoute,
   AuthenticatedMovieMovieIdRoute: AuthenticatedMovieMovieIdRoute,
@@ -446,13 +467,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

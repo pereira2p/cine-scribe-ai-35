@@ -9,12 +9,9 @@ import {
   Upload,
   Settings,
   Sparkles,
-  Compass,
-  BarChart3,
   ListChecks,
   Film,
-  Users,
-  Download,
+  Activity,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,9 +28,8 @@ import {
 
 const main = [
   { to: "/app", label: "Início", icon: Home },
-  { to: "/library", label: "Biblioteca", icon: Library },
   { to: "/search", label: "Pesquisar", icon: Search },
-  { to: "/discover", label: "Hoje para Voc\u00ea", icon: Compass },
+  { to: "/library", label: "Biblioteca", icon: Library },
 ] as const;
 
 const my = [
@@ -45,9 +41,7 @@ const my = [
 
 const more = [
   { to: "/uploads", label: "Uploads", icon: Upload },
-  { to: "/downloads", label: "Downloads", icon: Download },
-  { to: "/watch-party", label: "Watch Party", icon: Users },
-  { to: "/stats", label: "Estat\u00edsticas", icon: BarChart3 },
+  { to: "/system", label: "Sistema", icon: Activity },
   { to: "/settings", label: "Configura\u00e7\u00f5es", icon: Settings },
 ] as const;
 
