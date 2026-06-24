@@ -125,56 +125,7 @@ function LinkPanel({ onDone }: { onDone: () => void }) {
         Detecta automaticamente Internet Archive ou URL direta de vídeo (mp4, mkv, webm).
       </p>
       {m.error && <p className="text-xs text-destructive">{friendlyError(m.error)}</p>}
-      {m.data?.kind === "archive" && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">{m.data.data.title}</p>
-          {m.data.data.description && <p className="line-clamp-2 text-xs text-muted-foreground">{m.data.data.description}</p>}
-          <div className="max-h-60 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
-            {m.data.data.files.map((f) => (
-              <button
-                key={f.name}
-                type="button"
-                disabled={importer.isPending}
-                onClick={() =>
-                  importer.mutate({
-                    title: m.data!.data.title,
-                    url: f.url,
-                    mime: f.name.endsWith(".mkv") ? "video/x-matroska" : f.name.endsWith(".webm") ? "video/webm" : "video/mp4",
-                    size: f.size,
-                    year: m.data!.data.year,
-                    overview: m.data!.data.description,
-                    source: "internet_archive",
-                  })
-                }
-                className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs hover:bg-elevated disabled:opacity-50"
-              >
-                <span className="truncate">{f.name}</span>
-                <Badge variant="secondary">{f.format || "vídeo"}</Badge>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {m.data?.kind === "url" && (
-        <div className="space-y-2 rounded-xl border border-border p-3">
-          <UrlConfirm
-            initialTitle={m.data.data.name}
-            url={m.data.data.url}
-            mime={m.data.data.mimeType}
-            size={m.data.data.size}
-            onConfirm={(title) =>
-              importer.mutate({
-                title,
-                url: m.data!.data.url,
-                mime: m.data!.data.mimeType,
-                size: m.data!.data.size,
-                source: "url",
-              })
-            }
-            pending={importer.isPending}
-          />
-        </div>
-      )}
+      {m.data && <ResultPanel result={m.data} importer={importer} />}
       {isArchive && !m.data && !m.isPending && (
         <p className="text-[10px] text-muted-foreground">Detectado: Internet Archive</p>
       )}
@@ -182,23 +133,86 @@ function LinkPanel({ onDone }: { onDone: () => void }) {
   );
 }
 
+type LinkResult =
+  | { kind: "archive"; data: Awaited<ReturnType<typeof archiveAnalyze>> }
+  | { kind: "url"; data: Awaited<ReturnType<typeof urlAnalyze>> };
+
+function ResultPanel({
+  result,
+  importer,
+}: {
+  result: LinkResult;
+  importer: ReturnType<typeof useMutation<{ movieId: string }, Error, { title: string; url: string; mime: string; size?: number; year?: number; overview?: string; source: "internet_archive" | "url" }>>;
+}) {
+  if (result.kind === "archive") {
+    const d = result.data;
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-medium">{d.title}</p>
+        {d.description && <p className="line-clamp-2 text-xs text-muted-foreground">{d.description}</p>}
+        <div className="max-h-60 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+          {d.files.map((f) => (
+            <button
+              key={f.name}
+              type="button"
+              disabled={importer.isPending}
+              onClick={() =>
+                importer.mutate({
+                  title: d.title,
+                  url: f.url,
+                  mime: f.name.endsWith(".mkv") ? "video/x-matroska" : f.name.endsWith(".webm") ? "video/webm" : "video/mp4",
+                  size: f.size,
+                  year: d.year,
+                  overview: d.description,
+                  source: "internet_archive",
+                })
+              }
+              className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs hover:bg-elevated disabled:opacity-50"
+            >
+              <span className="truncate">{f.name}</span>
+              <Badge variant="secondary">{f.format || "vídeo"}</Badge>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  const d = result.data;
+  return (
+    <div className="space-y-2 rounded-xl border border-border p-3">
+      <UrlConfirm
+        initialTitle={d.name}
+        mime={d.mimeType}
+        size={d.size}
+        onConfirm={(title) =>
+          importer.mutate({
+            title,
+            url: d.url,
+            mime: d.mimeType,
+            size: d.size,
+            source: "url",
+          })
+        }
+        pending={importer.isPending}
+      />
+    </div>
+  );
+}
+
 function UrlConfirm({
   initialTitle,
-  url,
   mime,
   size,
   onConfirm,
   pending,
 }: {
   initialTitle: string;
-  url: string;
   mime: string;
   size?: number;
   onConfirm: (title: string) => void;
   pending: boolean;
 }) {
   const [title, setTitle] = useState(initialTitle);
-  void url;
   return (
     <div className="space-y-2">
       <Input placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} />
