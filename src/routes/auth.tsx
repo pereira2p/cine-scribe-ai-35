@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Film, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const SearchSchema = z.object({ mode: z.enum(["signin", "signup"]).default("signin") });
 
@@ -36,6 +37,31 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mv_last_email");
+      const pref = localStorage.getItem("mv_remember_me");
+      if (saved) setEmail(saved);
+      if (pref === "0") setRemember(false);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function applyRememberPreference(persist: boolean) {
+    try {
+      localStorage.setItem("mv_remember_me", persist ? "1" : "0");
+      if (persist) {
+        localStorage.setItem("mv_last_email", email);
+      } else {
+        localStorage.removeItem("mv_last_email");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -48,11 +74,13 @@ function AuthPage() {
           options: { emailRedirectTo: window.location.origin + "/app", data: { full_name: name } },
         });
         if (error) throw error;
+        applyRememberPreference(remember);
         toast.success("Conta criada. Verifique seu e-mail se necessário.");
         navigate({ to: "/app" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        applyRememberPreference(remember);
         navigate({ to: "/app" });
       }
     } catch (err) {
@@ -64,6 +92,7 @@ function AuthPage() {
 
   async function handleGoogle() {
     setLoading(true);
+    applyRememberPreference(remember);
     const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/app" });
     if (res.error) {
       toast.error(res.error instanceof Error ? res.error.message : "Falha no Google");
@@ -127,6 +156,13 @@ function AuthPage() {
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground select-none">
+              <Checkbox
+                checked={remember}
+                onCheckedChange={(v) => setRemember(v === true)}
+              />
+              Lembrar de mim neste dispositivo
+            </label>
             <Button type="submit" disabled={loading} className="w-full gap-2 bg-gradient-primary text-primary-foreground shadow-glow hover:brightness-110">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               {tab === "signup" ? "Criar conta" : "Entrar"}
