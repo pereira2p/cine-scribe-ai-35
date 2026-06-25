@@ -92,29 +92,40 @@ export const universalSearch = createServerFn({ method: "POST" })
           return { query: q, results: [], errors };
         }
       }
-      // Generic URL — quick HEAD probe
+      // Generic URL — trust the user. Probe lightly for nicer metadata but
+      // never block the import on it.
+      let mime = "";
       try {
-        const head = await fetch(q, { method: "HEAD" });
-        const mime = head.headers.get("content-type") ?? "video/mp4";
-        const name = decodeURIComponent(new URL(q).pathname.split("/").pop() ?? "video");
-        return {
-          query: q,
-          results: [
-            {
-              source: "url" as const,
-              key: `url:${q}`,
-              externalId: q,
-              title: name,
-              playableUrl: q,
-              mimeType: mime,
-            },
-          ] satisfies UnifiedResult[],
-          errors,
-        };
+        const head = await fetch(q, { method: "HEAD", redirect: "follow" });
+        mime = head.headers.get("content-type") ?? "";
       } catch {
-        errors.push({ source: "url", message: "Não foi possível acessar essa URL." });
-        return { query: q, results: [], errors };
+        // ignore — many CDNs reject HEAD
       }
+      const ext = q.match(/\.(mp4|m4v|mkv|webm|mov|ogv|avi|ts|m3u8)(\?|#|$)/i)?.[1]?.toLowerCase();
+      const guessedMime = mime && !/^text\//i.test(mime)
+        ? mime
+        : ext === "mkv"
+          ? "video/x-matroska"
+          : ext === "webm"
+            ? "video/webm"
+            : ext === "m3u8"
+              ? "application/vnd.apple.mpegurl"
+              : "video/mp4";
+      const name = decodeURIComponent(new URL(q).pathname.split("/").pop() || "video");
+      return {
+        query: q,
+        results: [
+          {
+            source: "url" as const,
+            key: `url:${q}`,
+            externalId: q,
+            title: name || q,
+            playableUrl: q,
+            mimeType: guessedMime,
+          },
+        ] satisfies UnifiedResult[],
+        errors,
+      };
     }
 
     // 2. Parallel search: Library + TMDB

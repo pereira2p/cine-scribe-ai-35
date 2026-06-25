@@ -896,7 +896,15 @@ export type Database = {
         | "banner"
         | "trailer"
         | "thumbnail"
-      storage_provider: "tmdb_only" | "r2" | "gdrive" | "onedrive" | "local"
+      storage_provider:
+        | "tmdb_only"
+        | "r2"
+        | "gdrive"
+        | "onedrive"
+        | "local"
+        | "internet_archive"
+        | "url"
+        | "youtube"
       upload_status:
         | "pending"
         | "uploading"
@@ -1040,7 +1048,16 @@ export const Constants = {
         "trailer",
         "thumbnail",
       ],
-      storage_provider: ["tmdb_only", "r2", "gdrive", "onedrive", "local"],
+      storage_provider: [
+        "tmdb_only",
+        "r2",
+        "gdrive",
+        "onedrive",
+        "local",
+        "internet_archive",
+        "url",
+        "youtube",
+      ],
       upload_status: ["pending", "uploading", "completed", "failed", "aborted"],
     },
   },
