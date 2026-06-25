@@ -70,19 +70,55 @@ export const urlAnalyze = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => UrlAnalyze.parse(i))
   .handler(async ({ data }) => {
-    let head: Response;
+    // Be permissive: many CDNs reject HEAD or omit content-type. We only fail
+    // when we can prove it's NOT a video. Otherwise we trust the user.
+    let mime = "";
+    let size = 0;
     try {
-      head = await fetch(data.url, { method: "HEAD" });
+      const head = await fetch(data.url, { method: "HEAD", redirect: "follow" });
+      mime = head.headers.get("content-type") ?? "";
+      size = Number(head.headers.get("content-length") ?? 0);
     } catch {
-      throw new Error("Não consegui acessar essa URL.");
+      // ignore — we'll trust the extension
     }
-    const mime = head.headers.get("content-type") ?? "";
-    const size = Number(head.headers.get("content-length") ?? 0);
-    if (!/^video\//.test(mime) && !/\.(mp4|mkv|webm|mov)(\?|$)/i.test(data.url)) {
-      throw new Error("A URL não aparenta ser um arquivo de vídeo.");
+    if (!mime) {
+      try {
+        const ranged = await fetch(data.url, {
+          method: "GET",
+          headers: { Range: "bytes=0-0" },
+          redirect: "follow",
+        });
+        mime = ranged.headers.get("content-type") ?? "";
+        const cr = ranged.headers.get("content-range");
+        if (cr) {
+          const total = Number(cr.split("/").pop());
+          if (Number.isFinite(total)) size = total;
+        }
+      } catch {
+        // still ignore — fall back to extension guess
+      }
     }
-    const name = decodeURIComponent(new URL(data.url).pathname.split("/").pop() ?? "video.mp4");
-    return { url: data.url, mimeType: mime || "video/mp4", size: size || undefined, name };
+    const extMatch = data.url.match(/\.(mp4|m4v|mkv|webm|mov|ogv|avi|ts|m3u8)(\?|#|$)/i);
+    const looksLikeVideo = /^video\//i.test(mime) || /octet-stream/i.test(mime) || Boolean(extMatch);
+    if (mime && /^text\/html/i.test(mime) && !extMatch) {
+      throw new Error("Esse link parece ser uma página, não um arquivo de vídeo direto.");
+    }
+    if (!looksLikeVideo && !mime) {
+      // No info at all + no extension — still allow, the player will try.
+    }
+    const guessedMime = mime && !/^text\//i.test(mime)
+      ? mime
+      : extMatch
+        ? extMatch[1].toLowerCase() === "mkv"
+          ? "video/x-matroska"
+          : extMatch[1].toLowerCase() === "webm"
+            ? "video/webm"
+            : extMatch[1].toLowerCase() === "m3u8"
+              ? "application/vnd.apple.mpegurl"
+              : "video/mp4"
+        : "video/mp4";
+    const name = decodeURIComponent(new URL(data.url).pathname.split("/").pop() || "video.mp4");
+    return { url: data.url, mimeType: guessedMime, size: size || undefined, name };
   });
 
 const CreateMovieFromUrl = z.object({
@@ -110,7 +146,7 @@ export const createMovieFromUrl = createServerFn({ method: "POST" })
         release_year: data.year ?? null,
         overview: data.overview ?? null,
         poster_path: data.posterUrl ?? null,
-        storage_provider: data.source as unknown as "r2",
+        storage_provider: data.source,
         storage_key: data.url,
         mime_type: data.mimeType,
         file_size: data.size ?? null,
