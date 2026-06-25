@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Film, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +38,17 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mv_last_email");
+      const pref = localStorage.getItem("mv_remember_me");
+      if (saved) setEmail(saved);
+      if (pref === "0") setRemember(false);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   function applyRememberPreference(persist: boolean) {
     try {
@@ -145,6 +156,13 @@ function AuthPage() {
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground select-none">
+              <Checkbox
+                checked={remember}
+                onCheckedChange={(v) => setRemember(v === true)}
+              />
+              Lembrar de mim neste dispositivo
+            </label>
             <Button type="submit" disabled={loading} className="w-full gap-2 bg-gradient-primary text-primary-foreground shadow-glow hover:brightness-110">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               {tab === "signup" ? "Criar conta" : "Entrar"}
