@@ -99,13 +99,7 @@ export const urlAnalyze = createServerFn({ method: "POST" })
       }
     }
     const extMatch = data.url.match(/\.(mp4|m4v|mkv|webm|mov|ogv|avi|ts|m3u8)(\?|#|$)/i);
-    const looksLikeVideo = /^video\//i.test(mime) || /octet-stream/i.test(mime) || Boolean(extMatch);
-    if (mime && /^text\/html/i.test(mime) && !extMatch) {
-      throw new Error("Esse link parece ser uma página, não um arquivo de vídeo direto.");
-    }
-    if (!looksLikeVideo && !mime) {
-      // No info at all + no extension — still allow, the player will try.
-    }
+    // Trust the user: never block import. The player will surface playback errors.
     const guessedMime = mime && !/^text\//i.test(mime)
       ? mime
       : extMatch
