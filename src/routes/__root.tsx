@@ -130,7 +130,20 @@ function RootComponent() {
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
-    return () => sub.subscription.unsubscribe();
+    const onPageHide = () => {
+      try {
+        if (localStorage.getItem("mv_remember_me") === "0") {
+          void supabase.auth.signOut();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener("pagehide", onPageHide);
+    };
   }, [router, queryClient]);
 
   return (
