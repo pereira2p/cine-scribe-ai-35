@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const SearchSchema = z.object({ mode: z.enum(["signin", "signup"]).default("signin") });
 
@@ -36,6 +37,20 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
+
+  function applyRememberPreference(persist: boolean) {
+    try {
+      localStorage.setItem("mv_remember_me", persist ? "1" : "0");
+      if (persist) {
+        localStorage.setItem("mv_last_email", email);
+      } else {
+        localStorage.removeItem("mv_last_email");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -48,11 +63,13 @@ function AuthPage() {
           options: { emailRedirectTo: window.location.origin + "/app", data: { full_name: name } },
         });
         if (error) throw error;
+        applyRememberPreference(remember);
         toast.success("Conta criada. Verifique seu e-mail se necessário.");
         navigate({ to: "/app" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        applyRememberPreference(remember);
         navigate({ to: "/app" });
       }
     } catch (err) {
@@ -64,6 +81,7 @@ function AuthPage() {
 
   async function handleGoogle() {
     setLoading(true);
+    applyRememberPreference(remember);
     const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/app" });
     if (res.error) {
       toast.error(res.error instanceof Error ? res.error.message : "Falha no Google");
