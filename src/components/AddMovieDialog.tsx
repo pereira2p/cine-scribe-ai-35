@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { tmdbSearch, tmdbImport } from "@/lib/tmdb.functions";
+import { ImportProgressStepper, type EnrichmentStep } from "@/components/ImportProgressStepper";
 
 export function AddMovieDialog({ trigger }: { trigger?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -30,8 +31,9 @@ export function AddMovieDialog({ trigger }: { trigger?: React.ReactNode }) {
 
   const importer = useMutation({
     mutationFn: (tmdbId: number) => importFn({ data: { tmdbId } }),
-    onSuccess: () => {
-      toast.success("Filme adicionado \u00e0 biblioteca");
+    onSuccess: (res) => {
+      const status = res?.report?.status ?? "complete";
+      toast.success(status === "complete" ? "Filme enriquecido com sucesso" : "Filme adicionado com avisos");
       qc.invalidateQueries({ queryKey: ["movies"] });
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao importar"),
@@ -61,6 +63,14 @@ export function AddMovieDialog({ trigger }: { trigger?: React.ReactNode }) {
           />
         </div>
         <div className="-mx-2 max-h-[50vh] overflow-y-auto px-2">
+          {importer.data?.report && (
+            <div className="mb-3">
+              <ImportProgressStepper
+                steps={importer.data.report.steps as EnrichmentStep[]}
+                status={importer.data.report.status}
+              />
+            </div>
+          )}
           {isFetching && (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Buscando...
