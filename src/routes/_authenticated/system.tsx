@@ -108,32 +108,45 @@ function SystemPage() {
         </Button>
       </div>
 
-      <ul className="space-y-2">
-        {data?.results.map((r) => (
-          <li
-            key={r.name}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/60 p-4"
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                  r.ok ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
-                }`}
-              >
-                {r.ok ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-              </span>
-              <div>
-                <p className="font-medium">{r.name}</p>
-                <p className="text-xs text-muted-foreground">{r.message}</p>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground">{r.latencyMs} ms</span>
-          </li>
-        ))}
-        {!data && Array.from({ length: 5 }).map((_, i) => (
-          <li key={i} className="h-16 animate-pulse rounded-2xl bg-surface/60" />
-        ))}
-      </ul>
+      {!data && (
+        <ul className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <li key={i} className="h-16 animate-pulse rounded-2xl bg-surface/60" />
+          ))}
+        </ul>
+      )}
+      {data && (
+        <div className="space-y-6">
+          {Object.entries(groupBy(data.results, (r) => r.group)).map(([group, rows]) => (
+            <section key={group}>
+              <h2 className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">{group}</h2>
+              <ul className="space-y-2">
+                {rows.map((r) => (
+                  <li
+                    key={r.name}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/60 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          r.ok ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
+                        }`}
+                      >
+                        {r.ok ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                      </span>
+                      <div>
+                        <p className="font-medium">{r.name}</p>
+                        <p className="text-xs text-muted-foreground">{r.message}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{r.latencyMs} ms</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
 
       {data && data.comingSoon.length > 0 && (
         <div className="mt-8 rounded-2xl border border-dashed border-border p-5">
