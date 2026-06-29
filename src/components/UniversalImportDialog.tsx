@@ -156,13 +156,13 @@ interface UrlData {
 }
 type LinkResult = { kind: "archive"; data: ArchiveData } | { kind: "url"; data: UrlData };
 
-function ResultPanel({
-  result,
-  importer,
-}: {
-  result: LinkResult;
-  importer: ReturnType<typeof useMutation<{ movieId: string }, Error, { title: string; url: string; mime: string; size?: number; year?: number; overview?: string; source: "internet_archive" | "url" }>>;
-}) {
+type ImporterMutation = ReturnType<typeof useMutation<
+  Awaited<ReturnType<typeof createMovieFromUrl>>,
+  Error,
+  { title: string; url: string; mime: string; size?: number; year?: number; overview?: string; source: "internet_archive" | "url" }
+>>;
+
+function ResultPanel({ result, importer }: { result: LinkResult; importer: ImporterMutation }) {
   if (result.kind === "archive") {
     const d = result.data;
     return (
