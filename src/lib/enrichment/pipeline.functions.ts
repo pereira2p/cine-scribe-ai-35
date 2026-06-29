@@ -1,12 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { fetchTmdbDetail, tmdbImg } from "./tmdb-detail.server";
-import { identifyTmdbId } from "./identify.server";
-import { suggestSmartTags, applySmartTags } from "./tags.server";
-import { cacheMovieAssets } from "./assets.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import type { TmdbFullDetail } from "./tmdb-detail.server";
 
 const EnrichInput = z.object({ movieId: z.string().uuid() });
 
@@ -35,6 +32,12 @@ export async function runEnrichment(
   userId: string,
   movieId: string,
 ): Promise<EnrichmentReport> {
+  // Dynamic imports keep server-only files out of the client bundle graph.
+  const { fetchTmdbDetail, tmdbImg } = await import("./tmdb-detail.server");
+  const { identifyTmdbId } = await import("./identify.server");
+  const { suggestSmartTags, applySmartTags } = await import("./tags.server");
+  const { cacheMovieAssets } = await import("./assets.server");
+
   const steps: EnrichmentReport["steps"] = [];
   const push = (name: string, ok: boolean, detail?: string) => steps.push({ name, ok, detail });
 
@@ -71,7 +74,7 @@ export async function runEnrichment(
   }
 
   // STEP 2 — TMDB detail
-  let detail: Awaited<ReturnType<typeof fetchTmdbDetail>> | null = null;
+  let detail: TmdbFullDetail | null = null;
   try {
     detail = await fetchTmdbDetail(tmdbId);
     push("tmdb-detail", true, detail.title);
