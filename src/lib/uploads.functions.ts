@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { runEnrichment } from "./enrichment/pipeline.functions";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
 
@@ -90,7 +91,14 @@ export const completeUpload = createServerFn({ method: "POST" })
       .eq("id", movieId)
       .eq("user_id", userId);
 
-    return { ok: true, movieId };
+    // Fire enrichment based on the filename / existing TMDB id.
+    let report = null;
+    try {
+      report = await runEnrichment(supabase, userId, movieId);
+    } catch {
+      // best-effort
+    }
+    return { ok: true, movieId, report };
   });
 
 const Abort = z.object({ uploadId: z.string().uuid(), reason: z.string().max(500).optional() });
