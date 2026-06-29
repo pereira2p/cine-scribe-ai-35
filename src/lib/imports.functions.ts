@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { runEnrichment } from "./enrichment/pipeline.functions";
 
 /** Extracts an archive.org item id from a full URL or returns the input as-is. */
 function parseArchiveId(input: string): string | null {
@@ -144,6 +145,7 @@ export const createMovieFromUrl = createServerFn({ method: "POST" })
         storage_key: data.url,
         mime_type: data.mimeType,
         file_size: data.size ?? null,
+        enrichment_status: "pending",
       })
       .select("id")
       .single();
@@ -153,5 +155,12 @@ export const createMovieFromUrl = createServerFn({ method: "POST" })
       kind: "movie_added",
       payload: { movie_id: row.id, title: data.title, source: data.source },
     });
-    return { movieId: row.id };
+    // Fire enrichment immediately; never throw if it fails.
+    let report = null;
+    try {
+      report = await runEnrichment(supabase, userId, row.id);
+    } catch {
+      // best-effort — movie is already created
+    }
+    return { movieId: row.id, report };
   });
