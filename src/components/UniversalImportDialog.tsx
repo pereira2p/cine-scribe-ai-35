@@ -156,13 +156,12 @@ interface UrlData {
 }
 type LinkResult = { kind: "archive"; data: ArchiveData } | { kind: "url"; data: UrlData };
 
-type ImporterMutation = ReturnType<typeof useMutation<
-  Awaited<ReturnType<typeof createMovieFromUrl>>,
-  Error,
-  { title: string; url: string; mime: string; size?: number; year?: number; overview?: string; source: "internet_archive" | "url" }
->>;
+interface ImporterLike {
+  isPending: boolean;
+  mutate: (args: { title: string; url: string; mime: string; size?: number; year?: number; overview?: string; source: "internet_archive" | "url" }) => void;
+}
 
-function ResultPanel({ result, importer }: { result: LinkResult; importer: ImporterMutation }) {
+function ResultPanel({ result, importer }: { result: LinkResult; importer: ImporterLike }) {
   if (result.kind === "archive") {
     const d = result.data;
     return (
