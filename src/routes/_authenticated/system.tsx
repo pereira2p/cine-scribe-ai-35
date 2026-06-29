@@ -68,8 +68,9 @@ const runDiagnostics = createServerFn({ method: "POST" })
   });
 
 function tmdbCheck(name: string, path: string) {
+  type R = { name: string; ok: boolean; latencyMs: number; message: string; group: string };
   return [
-    (async () => {
+    (async (): Promise<R> => {
       const start = Date.now();
       try {
         if (!process.env.TMDB_API_KEY) throw new Error("TMDB_API_KEY ausente");
@@ -81,6 +82,15 @@ function tmdbCheck(name: string, path: string) {
       }
     })(),
   ];
+}
+
+function groupBy<T>(items: T[], key: (item: T) => string): Record<string, T[]> {
+  const out: Record<string, T[]> = {};
+  for (const item of items) {
+    const k = key(item);
+    (out[k] ||= []).push(item);
+  }
+  return out;
 }
 
 export const Route = createFileRoute("/_authenticated/system")({ component: SystemPage });
