@@ -46,19 +46,19 @@ export async function cacheMovieAssets(
         // fall through to TMDB url
       }
     }
-    const { error } = await supabase
+    await supabase
       .from("movie_assets")
-      .upsert(
-        {
-          user_id: userId,
-          movie_id: movieId,
-          kind: spec.kind,
-          url: finalUrl,
-          source,
-          is_default: true,
-        },
-        { onConflict: "movie_id,kind,url" },
-      );
+      .delete()
+      .eq("movie_id", movieId)
+      .eq("kind", spec.kind);
+    const { error } = await supabase.from("movie_assets").insert({
+      user_id: userId,
+      movie_id: movieId,
+      kind: spec.kind,
+      url: finalUrl,
+      source,
+      is_default: true,
+    });
     if (!error) saved++;
   }
   return { saved, cached };
