@@ -10,39 +10,35 @@ import { Button } from "@/components/ui/button";
 const runDiagnostics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const checks: Array<Promise<{ name: string; ok: boolean; latencyMs: number; message: string }>> = [
+    const checks: Array<Promise<{ name: string; ok: boolean; latencyMs: number; message: string; group: string }>> = [
       // Database
       (async () => {
         const start = Date.now();
         try {
           const { error } = await context.supabase.from("movies").select("id").limit(1);
           if (error) throw new Error(error.message);
-          return { name: "Banco de dados", ok: true, latencyMs: Date.now() - start, message: "Conectado" };
+          return { name: "Banco de dados", ok: true, latencyMs: Date.now() - start, message: "Conectado", group: "Infraestrutura" };
         } catch (e) {
-          return { name: "Banco de dados", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha" };
+          return { name: "Banco de dados", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha", group: "Infraestrutura" };
         }
       })(),
-      // TMDB
-      (async () => {
-        const start = Date.now();
-        try {
-          if (!process.env.TMDB_API_KEY) throw new Error("TMDB_API_KEY ausente");
-          const r = await fetch(`https://api.themoviedb.org/3/configuration?api_key=${process.env.TMDB_API_KEY}`);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return { name: "TMDB", ok: true, latencyMs: Date.now() - start, message: "API ativa" };
-        } catch (e) {
-          return { name: "TMDB", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha" };
-        }
-      })(),
+      // TMDB granular checks — use Fight Club (550) as canary
+      ...tmdbCheck("TMDB configuração", "/configuration"),
+      ...tmdbCheck("TMDB detalhes", "/movie/550"),
+      ...tmdbCheck("TMDB elenco/equipe", "/movie/550/credits"),
+      ...tmdbCheck("TMDB imagens (poster/backdrop/logo)", "/movie/550/images"),
+      ...tmdbCheck("TMDB trailer", "/movie/550/videos"),
+      ...tmdbCheck("TMDB coleção", "/collection/10"),
+      ...tmdbCheck("TMDB keywords", "/movie/550/keywords"),
       // Internet Archive
       (async () => {
         const start = Date.now();
         try {
           const r = await fetch("https://archive.org/metadata/BigBuckBunny_124", { method: "GET" });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return { name: "Internet Archive", ok: true, latencyMs: Date.now() - start, message: "Online" };
+          return { name: "Internet Archive", ok: true, latencyMs: Date.now() - start, message: "Online", group: "Fontes" };
         } catch (e) {
-          return { name: "Internet Archive", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha" };
+          return { name: "Internet Archive", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha", group: "Fontes" };
         }
       })(),
       // R2
@@ -50,17 +46,18 @@ const runDiagnostics = createServerFn({ method: "POST" })
         const start = Date.now();
         const hasAll = !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
         return {
-          name: "Storage R2",
+          name: "Cloudflare R2 (storage + cache de assets)",
           ok: hasAll,
           latencyMs: Date.now() - start,
           message: hasAll ? "Credenciais configuradas" : "Credenciais R2 incompletas",
+          group: "Infraestrutura",
         };
       })(),
       // Lovable AI
       (async () => {
         const start = Date.now();
         const ok = !!process.env.LOVABLE_API_KEY;
-        return { name: "IA (Lovable AI)", ok, latencyMs: Date.now() - start, message: ok ? "Chave presente" : "Chave ausente" };
+        return { name: "IA (identificação + tags inteligentes)", ok, latencyMs: Date.now() - start, message: ok ? "Chave presente" : "Chave ausente", group: "Importação" };
       })(),
     ];
     const results = await Promise.all(checks);
@@ -69,6 +66,32 @@ const runDiagnostics = createServerFn({ method: "POST" })
       comingSoon: ["Google Drive", "OneDrive", "Dropbox", "NAS", "Pasta sincronizada"],
     };
   });
+
+function tmdbCheck(name: string, path: string) {
+  type R = { name: string; ok: boolean; latencyMs: number; message: string; group: string };
+  return [
+    (async (): Promise<R> => {
+      const start = Date.now();
+      try {
+        if (!process.env.TMDB_API_KEY) throw new Error("TMDB_API_KEY ausente");
+        const r = await fetch(`https://api.themoviedb.org/3${path}?api_key=${process.env.TMDB_API_KEY}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return { name, ok: true, latencyMs: Date.now() - start, message: "OK", group: "Importação" };
+      } catch (e) {
+        return { name, ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha", group: "Importação" };
+      }
+    })(),
+  ];
+}
+
+function groupBy<T>(items: T[], key: (item: T) => string): Record<string, T[]> {
+  const out: Record<string, T[]> = {};
+  for (const item of items) {
+    const k = key(item);
+    (out[k] ||= []).push(item);
+  }
+  return out;
+}
 
 export const Route = createFileRoute("/_authenticated/system")({ component: SystemPage });
 
@@ -95,32 +118,45 @@ function SystemPage() {
         </Button>
       </div>
 
-      <ul className="space-y-2">
-        {data?.results.map((r) => (
-          <li
-            key={r.name}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/60 p-4"
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                  r.ok ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
-                }`}
-              >
-                {r.ok ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-              </span>
-              <div>
-                <p className="font-medium">{r.name}</p>
-                <p className="text-xs text-muted-foreground">{r.message}</p>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground">{r.latencyMs} ms</span>
-          </li>
-        ))}
-        {!data && Array.from({ length: 5 }).map((_, i) => (
-          <li key={i} className="h-16 animate-pulse rounded-2xl bg-surface/60" />
-        ))}
-      </ul>
+      {!data && (
+        <ul className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <li key={i} className="h-16 animate-pulse rounded-2xl bg-surface/60" />
+          ))}
+        </ul>
+      )}
+      {data && (
+        <div className="space-y-6">
+          {Object.entries(groupBy(data.results, (r) => r.group)).map(([group, rows]) => (
+            <section key={group}>
+              <h2 className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">{group}</h2>
+              <ul className="space-y-2">
+                {rows.map((r) => (
+                  <li
+                    key={r.name}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface/60 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          r.ok ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"
+                        }`}
+                      >
+                        {r.ok ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                      </span>
+                      <div>
+                        <p className="font-medium">{r.name}</p>
+                        <p className="text-xs text-muted-foreground">{r.message}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{r.latencyMs} ms</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
 
       {data && data.comingSoon.length > 0 && (
         <div className="mt-8 rounded-2xl border border-dashed border-border p-5">

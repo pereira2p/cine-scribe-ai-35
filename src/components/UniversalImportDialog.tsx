@@ -12,6 +12,7 @@ import { AddMovieDialog } from "@/components/AddMovieDialog";
 import { UploadDropzone } from "@/components/UploadDropzone";
 import { archiveAnalyze, urlAnalyze, createMovieFromUrl } from "@/lib/imports.functions";
 import { friendlyError } from "@/lib/errors";
+import { ImportProgressStepper, type EnrichmentStep } from "@/components/ImportProgressStepper";
 
 export function UniversalImportDialog({
   open,
@@ -101,10 +102,11 @@ function LinkPanel({ onDone }: { onDone: () => void }) {
           source: args.source,
         },
       }),
-    onSuccess: () => {
-      toast.success("Filme adicionado com sucesso");
+    onSuccess: (res) => {
+      const status = res?.report?.status ?? "complete";
+      toast.success(status === "complete" ? "Filme enriquecido com sucesso" : "Adicionado — alguns dados ficaram para depois");
       qc.invalidateQueries({ queryKey: ["movies"] });
-      onDone();
+      // Keep dialog open briefly so the stepper is visible; user closes manually.
     },
     onError: (e) => toast.error(friendlyError(e)),
   });
@@ -126,6 +128,12 @@ function LinkPanel({ onDone }: { onDone: () => void }) {
       </p>
       {m.error && <p className="text-xs text-destructive">{friendlyError(m.error)}</p>}
       {m.data && <ResultPanel result={m.data} importer={importer} />}
+      {importer.data?.report && (
+        <ImportProgressStepper
+          steps={importer.data.report.steps as EnrichmentStep[]}
+          status={importer.data.report.status}
+        />
+      )}
       {isArchive && !m.data && !m.isPending && (
         <p className="text-[10px] text-muted-foreground">Detectado: Internet Archive</p>
       )}
@@ -148,13 +156,12 @@ interface UrlData {
 }
 type LinkResult = { kind: "archive"; data: ArchiveData } | { kind: "url"; data: UrlData };
 
-function ResultPanel({
-  result,
-  importer,
-}: {
-  result: LinkResult;
-  importer: ReturnType<typeof useMutation<{ movieId: string }, Error, { title: string; url: string; mime: string; size?: number; year?: number; overview?: string; source: "internet_archive" | "url" }>>;
-}) {
+interface ImporterLike {
+  isPending: boolean;
+  mutate: (args: { title: string; url: string; mime: string; size?: number; year?: number; overview?: string; source: "internet_archive" | "url" }) => void;
+}
+
+function ResultPanel({ result, importer }: { result: LinkResult; importer: ImporterLike }) {
   if (result.kind === "archive") {
     const d = result.data;
     return (

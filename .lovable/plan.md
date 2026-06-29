@@ -1,182 +1,126 @@
-# Fase 3 — CineVault MVP utilizável hoje
+# Refatoração do Pipeline de Importação
 
-Foco absoluto: **Pesquisar → Adicionar → Ver na biblioteca → Assistir**, sem erros, com uma IA central que entende qualquer entrada do usuário.
+Hoje cada fonte (TMDB, URL, Archive, Upload) chama lógicas separadas e nenhuma faz enriquecimento completo. Vou unificar tudo em um único pipeline `enrichMovie` que roda automaticamente após qualquer importação.
 
-Tudo que não estiver 100% funcional é ocultado atrás de um selo discreto "Em desenvolvimento".
+## 1. Pipeline único `enrichMovie(movieId)`
 
----
-
-## 1. Limpeza da interface (remover ruído)
-
-Ocultar dos menus (sidebar + bottom nav) e bloquear rotas com tela "Em desenvolvimento":
-- Watch Party
-- Downloads offline
-- Stats (mantém só se já funcionar; senão esconde)
-- Activity Feed inline
-- Botão "Transmitir" do player (selo "em breve")
-
-Manter visível: **Home, Buscar, Biblioteca, Favoritos, Coleções, Histórico, Configurações**.
-
-Sidebar e bottom nav reduzidos ao essencial.
-
----
-
-## 2. Nova Home — campo único universal
-
-Substituir a home atual por uma tela inspirada em Spotlight/Arc:
+Novo arquivo `src/lib/enrichment/pipeline.functions.ts`. Server function disparada ao final de qualquer importação. Executa em ordem, **nunca aborta** — cada passo grava o que conseguir e segue para o próximo, registrando status em `background_jobs`.
 
 ```text
-┌────────────────────────────────────────────┐
-│                                            │
-│   O que você quer assistir hoje?           │
-│   ┌──────────────────────────────────────┐ │
-│   │ Interestelar, Nolan, um sci-fi...    │ │
-│   └──────────────────────────────────────┘ │
-│   [ Buscar com IA ]   [ Adicionar filme ] │
-│                                            │
-│   Continuar assistindo · Recém-adicionados │
-└────────────────────────────────────────────┘
+Passo 1  Identificação      → TMDB ID já presente? senão IA (Gemini) infere título+ano do filename/URL → TMDB search
+Passo 2  Detalhes TMDB      → /movie/{id}?append_to_response=videos,credits,images,release_dates,translations
+Passo 3  Créditos           → upsert people + movie_credits (cast + director + producer + writer)
+Passo 4  Coleção            → /collection/{id} → cria/atualiza collections + collection_movies
+Passo 5  Cache de assets    → baixa poster/backdrop/logo/thumbnail e envia ao R2 → salva em movie_assets
+Passo 6  Tags inteligentes  → IA classifica em smart_tags pré-definidas usando sinopse/genres/keywords TMDB
+Passo 7  Finalização        → marca movies.enrichment_status='complete' + activity_feed
 ```
 
-Um único `<input>` aceita: título, diretor, ator, gênero, URL, ou pergunta em linguagem natural.
+Cada passo é envolvido por `try/catch` que grava o erro em `background_jobs.error` mas não propaga.
 
-Abaixo: dois ou três carrosséis curtos (Continuar, Recém-adicionados, Favoritos) — só aparecem se houver dados.
+## 2. Pontos de disparo
 
----
+Após inserir o filme, chamar `enrichMovie({movieId})` (fire-and-forget no cliente via mutation com `onSuccess`):
+- `tmdbImport` (já tem TMDB ID)
+- `createMovieFromUrl` (URL/Archive/YouTube — passo 1 precisa identificar)
+- `completeUpload` (R2 — passo 1 usa filename)
+- futuros Drive/OneDrive
 
-## 3. Universal AI Search (núcleo da Fase 3)
+## 3. Cache de assets (R2)
 
-Criar `src/lib/search/universal.functions.ts` com **uma única server fn** `universalSearch({ query })`.
+Novo `src/lib/enrichment/assets.server.ts`:
+- baixa de `image.tmdb.org/t/p/original{path}`
+- envia para R2 em `assets/{movieId}/{kind}-{size}.jpg`
+- gera URL pública via `R2_PUBLIC_BASE_URL`
+- insere em `movie_assets` (kind: poster|backdrop|logo|thumbnail|banner, size, url, source)
+- atualiza `movies.poster_path`/`backdrop_path` com a URL local
+- se falhar, mantém URL TMDB como fallback
 
-Fluxo interno:
+## 4. Identificação por IA
 
-1. **Classificador de intenção** (regex barata + fallback Gemini Flash):
-   - URL → roteia para provider apropriado (Archive, URL direta).
-   - Texto curto sem operadores → busca paralela em **Biblioteca + TMDB**.
-   - Frase natural ("quero um sci-fi curto", "parecido com Duna") → Gemini extrai filtros estruturados (genre, year_min, similar_to, runtime_max, person) e chama TMDB com `discover/movie`.
-2. **Execução paralela** nos providers ativos via `Promise.allSettled` (nunca quebra se um falhar).
-3. **Normalização** para `UnifiedResult { source, externalId, title, year, posterUrl, overview, rating, alreadyInLibrary, playableUrl? }`.
-4. **Ranking simples**: biblioteca primeiro, depois TMDB por popularidade, depois Archive.
-5. Erros viram aviso amigável por fonte ("Não foi possível acessar TMDB agora").
+Quando não há TMDB ID (uploads/URLs), `src/lib/enrichment/identify.server.ts`:
+- limpa filename (remove qualidade, codec, ano em []) 
+- envia a Gemini com prompt: "extraia título e ano do filme deste nome/URL"
+- usa resposta para TMDB search → escolhe melhor match (popularidade + ano)
+- retorna `tmdbId` para alimentar passo 2
 
-Providers nesta fase:
-- ✅ Library (Supabase)
-- ✅ TMDB (search + discover)
-- ✅ Internet Archive
-- ✅ URL direta
-- 🚧 Google Drive / OneDrive / Dropbox / NAS → ficam como `available: false` no registry (não aparecem em busca, mas a interface mostra "em breve" só na tela Sistema).
+## 5. Tags inteligentes
 
----
+Vocabulário fixo em migration: Cult, Mind-blowing, Cyberpunk, Oscar, Slow Burn, Plot Twist, Espacial, Viagem no Tempo, Heist, Noir, Coming-of-Age, Tear-jerker, Feel-good, Body Horror, Found Footage.
 
-## 4. Resultados unificados
+`src/lib/enrichment/tags.server.ts` envia sinopse + gêneros + keywords TMDB ao Gemini com a lista fixa, pedindo no máximo 5 tags em JSON. Insere em `movie_smart_tags`.
 
-Página `/search?q=...` (ou inline na home após enter):
+## 6. Schema
 
-Card padrão com poster, título, ano, nota, sinopse curta, **badge de origem** (Biblioteca / TMDB / Archive / URL).
+Migration adiciona:
+- `movies.enrichment_status` enum: `pending | partial | complete | failed`
+- `movies.enrichment_error text`
+- `movies.tmdb_keywords text[]`
+- `movies.budget bigint`, `revenue bigint`, `status text`, `certification text`, `logo_path text`, `spoken_languages text[]`
+- seed em `smart_tags` com vocabulário acima
 
-Botões contextuais:
-- Já está na biblioteca → **Assistir** + **Favoritar**.
-- TMDB → **Adicionar à biblioteca** (metadata-only).
-- Archive/URL → **Adicionar e assistir** (cria movie row com `storage_key=url`).
+## 7. Página de diagnóstico expandida
 
----
+`src/routes/_authenticated/system.tsx` ganha aba "Importação" testando individualmente:
+- TMDB `/movie/550` (detalhes)
+- TMDB imagens (`/movie/550/images`)
+- TMDB credits, collection, videos
+- R2 put + get de byte de teste
+- Lovable AI (ping curto)
+- Banco (insert/select dry-run em tabela temp)
 
-## 5. Importação ponta-a-ponta (refatoração)
+Cada item: ✓ ⚠ ✗ + latência + botão "Testar novamente" (já existe; vou modularizar por categoria).
 
-Garantir que **todo botão "Adicionar" funcione sem erro**:
+## 8. UI de feedback
 
-- `addFromTmdb(tmdbId)` — server fn que: busca detalhes TMDB, baixa poster/backdrop URLs (apenas referenciados, sem rehospedar), insere `movies`, `movie_genres`, `movie_credits`, registra `activity_feed`.
-- `addFromArchive({ identifier, fileName })` — usa `archiveAnalyze` existente + `createMovieFromUrl`.
-- `addFromUrl({ url, title? })` — usa `urlAnalyze` + `createMovieFromUrl`.
+`UniversalImportDialog` mostra após "Adicionar" um stepper ao vivo (assinatura realtime em `background_jobs` por `movie_id`):
+```
+✓ Filme identificado: Interestelar (2014)
+✓ Poster baixado
+✓ Backdrop baixado
+✓ Trailer encontrado
+✓ Elenco importado (89 pessoas)
+✓ Coleção: Trilogia Nolan
+✓ Tags: Mind-blowing, Espacial, Slow Burn
+```
 
-Todos retornam `{ movieId }` e a UI:
-- toast "Filme adicionado com sucesso"
-- invalida queries de biblioteca
-- oferece ação inline "Assistir agora".
+## 9. Placeholders elegantes
 
-Tratamento de erro centralizado (`friendlyError(e)`): mapeia mensagens técnicas para PT-BR amigável.
+`MovieCard` e página de detalhe já tratam null, mas reforço:
+- poster ausente → gradient com título grande
+- backdrop ausente → blur do poster
+- trailer ausente → botão desabilitado com tooltip
+- elenco vazio → "Elenco ainda não disponível"
 
----
+Nunca campo em branco — sempre placeholder.
 
-## 6. Player — assistir imediatamente
+## Arquivos a criar/editar
 
-Já existe `MyVaultPlayer` + rota `/watch/$movieId`. Garantir:
-- Filmes com `storage_key` sendo URL externa (http/https) → tocam direto, sem assinar.
-- Filmes com `storage_provider='r2'` → fluxo presigned atual.
-- MKV/MOV sem suporte nativo → mensagem amigável "Este formato pode não tocar no navegador. Tente baixar".
+**Novos**
+- `src/lib/enrichment/pipeline.functions.ts`
+- `src/lib/enrichment/identify.server.ts`
+- `src/lib/enrichment/assets.server.ts`
+- `src/lib/enrichment/tags.server.ts`
+- `src/lib/enrichment/tmdb-detail.server.ts` (wrapper TMDB com append_to_response)
+- `src/components/ImportProgressStepper.tsx`
 
----
+**Editar**
+- `src/lib/tmdb.functions.ts` (dispara enrichment ao fim)
+- `src/lib/imports.functions.ts` (dispara enrichment)
+- `src/lib/uploads.functions.ts` (dispara enrichment em completeUpload)
+- `src/components/UniversalImportDialog.tsx` (mostra stepper)
+- `src/routes/_authenticated/system.tsx` (aba importação)
+- `src/components/MovieCard.tsx` + `src/routes/_authenticated/movie.$movieId.tsx` (placeholders)
 
-## 7. Universal Import Dialog (botão "Adicionar filme")
+**Migration**
+- novas colunas em `movies`
+- seed `smart_tags`
+- `background_jobs` já existe; só uso
 
-Reaproveitar `UniversalImportDialog` existente, simplificar abas: **TMDB · Link · Upload**.
-- "Link" detecta automaticamente se é Archive ou URL direta (usa `universalSearch` com a URL).
-- Esconder Google Drive/OneDrive/Dropbox/NAS (mover para Sistema → "em breve").
+## Fora de escopo (próxima fase)
 
----
+- Google Drive / OneDrive reais (precisa OAuth por usuário — já está como "em desenvolvimento")
+- Hash-based identification (precisa lib de hash de vídeo; por ora só filename+IA)
+- Re-enriquecimento em massa de filmes antigos (vou expor botão "Re-enriquecer" no detalhe, mas não rodo batch automático)
 
-## 8. Página Sistema (diagnóstico)
-
-Nova rota `/_authenticated/system`:
-
-| Serviço | Status | Ação |
-|---|---|---|
-| TMDB API | ✓ Online | Testar |
-| Banco de dados | ✓ Online | Testar |
-| Storage R2 | ✓ Online | Testar |
-| Internet Archive | ✓ Online | Testar |
-| Google Drive | ⏳ Em breve | — |
-| OneDrive | ⏳ Em breve | — |
-
-Cada teste é uma server fn que retorna `{ ok, latencyMs, message }`.
-
----
-
-## 9. Mensagens de erro (UX)
-
-Helper `friendlyError(e: unknown): string` usado em todos os `onError`. Tabela de mapeamento:
-
-| Causa | Mensagem |
-|---|---|
-| fetch falhou | "Não foi possível acessar essa fonte agora." |
-| sem resultados | "Nenhum filme encontrado." |
-| 429 / rate limit | "Muitas requisições. Tente novamente em alguns segundos." |
-| 402 (Lovable AI) | "Limite da IA atingido. Tente uma busca simples." |
-| qualquer outro | "Algo deu errado. Tente novamente." |
-
----
-
-## Detalhes técnicos
-
-**Novos arquivos:**
-- `src/lib/search/universal.functions.ts` — `universalSearch`, `addFromTmdb`, `addFromArchive` (wrappers).
-- `src/lib/search/intent.server.ts` — classificador + chamada Gemini.
-- `src/lib/errors.ts` — `friendlyError`.
-- `src/components/UniversalSearchBar.tsx` — campo da home.
-- `src/components/SearchResultCard.tsx` — card unificado.
-- `src/routes/_authenticated/system.tsx` — diagnóstico.
-
-**Modificados:**
-- `src/routes/_authenticated/app.tsx` (home) — nova UI.
-- `src/routes/_authenticated/search.tsx` — usa `universalSearch`.
-- `src/components/UniversalImportDialog.tsx` — abas reduzidas.
-- `src/components/AppSidebar.tsx` + `BottomNav.tsx` — remove links em desenvolvimento.
-- `src/routes/_authenticated/{watch-party,downloads}.tsx` — placeholder "Em desenvolvimento".
-
-**Reuso:** `tmdb.functions.ts`, `imports.functions.ts`, `copilot.functions.ts`, `MyVaultPlayer`, R2 stack — sem alterações estruturais.
-
-**IA:** `google/gemini-3-flash-preview` via Lovable AI Gateway (já configurado em `copilot.functions.ts`). Sem novos secrets.
-
-**Sem migrations** nesta fase — usa schema atual.
-
----
-
-## Fora desta fase
-
-Watch Party real · Download offline real · Chromecast/AirPlay nativos · Comentários · Social · Capacitor · HLS · Recomendações personalizadas.
-
-Voltam após o ciclo Pesquisar→Adicionar→Assistir estar sólido.
-
----
-
-**Posso executar?**
+Posso prosseguir?

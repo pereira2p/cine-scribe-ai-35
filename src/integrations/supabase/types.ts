@@ -363,13 +363,19 @@ export type Database = {
           added_at: string
           audio_codec: string | null
           backdrop_path: string | null
+          budget: number | null
+          certification: string | null
           duration_seconds: number | null
+          enriched_at: string | null
+          enrichment_error: string | null
+          enrichment_status: Database["public"]["Enums"]["enrichment_status"]
           file_hash: string | null
           file_size: number | null
           file_size_bytes: number | null
           id: string
           imdb_id: string | null
           is_archived: boolean
+          logo_path: string | null
           mime_type: string | null
           origin_country: string | null
           original_language: string | null
@@ -380,13 +386,16 @@ export type Database = {
           release_date: string | null
           release_year: number | null
           resolution: string | null
+          revenue: number | null
           runtime_minutes: number | null
+          spoken_languages: string[] | null
           status: string | null
           storage_key: string | null
           storage_provider: Database["public"]["Enums"]["storage_provider"]
           tagline: string | null
           title: string
           tmdb_id: number | null
+          tmdb_keywords: string[] | null
           trailer_key: string | null
           updated_at: string
           user_id: string
@@ -398,13 +407,19 @@ export type Database = {
           added_at?: string
           audio_codec?: string | null
           backdrop_path?: string | null
+          budget?: number | null
+          certification?: string | null
           duration_seconds?: number | null
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: Database["public"]["Enums"]["enrichment_status"]
           file_hash?: string | null
           file_size?: number | null
           file_size_bytes?: number | null
           id?: string
           imdb_id?: string | null
           is_archived?: boolean
+          logo_path?: string | null
           mime_type?: string | null
           origin_country?: string | null
           original_language?: string | null
@@ -415,13 +430,16 @@ export type Database = {
           release_date?: string | null
           release_year?: number | null
           resolution?: string | null
+          revenue?: number | null
           runtime_minutes?: number | null
+          spoken_languages?: string[] | null
           status?: string | null
           storage_key?: string | null
           storage_provider?: Database["public"]["Enums"]["storage_provider"]
           tagline?: string | null
           title: string
           tmdb_id?: number | null
+          tmdb_keywords?: string[] | null
           trailer_key?: string | null
           updated_at?: string
           user_id: string
@@ -433,13 +451,19 @@ export type Database = {
           added_at?: string
           audio_codec?: string | null
           backdrop_path?: string | null
+          budget?: number | null
+          certification?: string | null
           duration_seconds?: number | null
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: Database["public"]["Enums"]["enrichment_status"]
           file_hash?: string | null
           file_size?: number | null
           file_size_bytes?: number | null
           id?: string
           imdb_id?: string | null
           is_archived?: boolean
+          logo_path?: string | null
           mime_type?: string | null
           origin_country?: string | null
           original_language?: string | null
@@ -450,13 +474,16 @@ export type Database = {
           release_date?: string | null
           release_year?: number | null
           resolution?: string | null
+          revenue?: number | null
           runtime_minutes?: number | null
+          spoken_languages?: string[] | null
           status?: string | null
           storage_key?: string | null
           storage_provider?: Database["public"]["Enums"]["storage_provider"]
           tagline?: string | null
           title?: string
           tmdb_id?: number | null
+          tmdb_keywords?: string[] | null
           trailer_key?: string | null
           updated_at?: string
           user_id?: string
@@ -889,6 +916,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       credit_role: "cast" | "director" | "writer" | "producer"
+      enrichment_status: "pending" | "partial" | "complete" | "failed"
       movie_asset_kind:
         | "poster"
         | "backdrop"
@@ -1040,6 +1068,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       credit_role: ["cast", "director", "writer", "producer"],
+      enrichment_status: ["pending", "partial", "complete", "failed"],
       movie_asset_kind: [
         "poster",
         "backdrop",
