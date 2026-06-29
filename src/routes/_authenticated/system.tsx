@@ -10,39 +10,35 @@ import { Button } from "@/components/ui/button";
 const runDiagnostics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const checks: Array<Promise<{ name: string; ok: boolean; latencyMs: number; message: string }>> = [
+    const checks: Array<Promise<{ name: string; ok: boolean; latencyMs: number; message: string; group: string }>> = [
       // Database
       (async () => {
         const start = Date.now();
         try {
           const { error } = await context.supabase.from("movies").select("id").limit(1);
           if (error) throw new Error(error.message);
-          return { name: "Banco de dados", ok: true, latencyMs: Date.now() - start, message: "Conectado" };
+          return { name: "Banco de dados", ok: true, latencyMs: Date.now() - start, message: "Conectado", group: "Infraestrutura" };
         } catch (e) {
-          return { name: "Banco de dados", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha" };
+          return { name: "Banco de dados", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha", group: "Infraestrutura" };
         }
       })(),
-      // TMDB
-      (async () => {
-        const start = Date.now();
-        try {
-          if (!process.env.TMDB_API_KEY) throw new Error("TMDB_API_KEY ausente");
-          const r = await fetch(`https://api.themoviedb.org/3/configuration?api_key=${process.env.TMDB_API_KEY}`);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return { name: "TMDB", ok: true, latencyMs: Date.now() - start, message: "API ativa" };
-        } catch (e) {
-          return { name: "TMDB", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha" };
-        }
-      })(),
+      // TMDB granular checks — use Fight Club (550) as canary
+      ...tmdbCheck("TMDB configuração", "/configuration"),
+      ...tmdbCheck("TMDB detalhes", "/movie/550"),
+      ...tmdbCheck("TMDB elenco/equipe", "/movie/550/credits"),
+      ...tmdbCheck("TMDB imagens (poster/backdrop/logo)", "/movie/550/images"),
+      ...tmdbCheck("TMDB trailer", "/movie/550/videos"),
+      ...tmdbCheck("TMDB coleção", "/collection/10"),
+      ...tmdbCheck("TMDB keywords", "/movie/550/keywords"),
       // Internet Archive
       (async () => {
         const start = Date.now();
         try {
           const r = await fetch("https://archive.org/metadata/BigBuckBunny_124", { method: "GET" });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return { name: "Internet Archive", ok: true, latencyMs: Date.now() - start, message: "Online" };
+          return { name: "Internet Archive", ok: true, latencyMs: Date.now() - start, message: "Online", group: "Fontes" };
         } catch (e) {
-          return { name: "Internet Archive", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha" };
+          return { name: "Internet Archive", ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha", group: "Fontes" };
         }
       })(),
       // R2
@@ -50,17 +46,18 @@ const runDiagnostics = createServerFn({ method: "POST" })
         const start = Date.now();
         const hasAll = !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
         return {
-          name: "Storage R2",
+          name: "Cloudflare R2 (storage + cache de assets)",
           ok: hasAll,
           latencyMs: Date.now() - start,
           message: hasAll ? "Credenciais configuradas" : "Credenciais R2 incompletas",
+          group: "Infraestrutura",
         };
       })(),
       // Lovable AI
       (async () => {
         const start = Date.now();
         const ok = !!process.env.LOVABLE_API_KEY;
-        return { name: "IA (Lovable AI)", ok, latencyMs: Date.now() - start, message: ok ? "Chave presente" : "Chave ausente" };
+        return { name: "IA (identificação + tags inteligentes)", ok, latencyMs: Date.now() - start, message: ok ? "Chave presente" : "Chave ausente", group: "Importação" };
       })(),
     ];
     const results = await Promise.all(checks);
@@ -69,6 +66,22 @@ const runDiagnostics = createServerFn({ method: "POST" })
       comingSoon: ["Google Drive", "OneDrive", "Dropbox", "NAS", "Pasta sincronizada"],
     };
   });
+
+function tmdbCheck(name: string, path: string) {
+  return [
+    (async () => {
+      const start = Date.now();
+      try {
+        if (!process.env.TMDB_API_KEY) throw new Error("TMDB_API_KEY ausente");
+        const r = await fetch(`https://api.themoviedb.org/3${path}?api_key=${process.env.TMDB_API_KEY}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return { name, ok: true, latencyMs: Date.now() - start, message: "OK", group: "Importação" };
+      } catch (e) {
+        return { name, ok: false, latencyMs: Date.now() - start, message: e instanceof Error ? e.message : "falha", group: "Importação" };
+      }
+    })(),
+  ];
+}
 
 export const Route = createFileRoute("/_authenticated/system")({ component: SystemPage });
 
