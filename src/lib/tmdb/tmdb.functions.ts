@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { TmdbMovieDetail, TmdbSearchHit } from "./client";
 
 const BASE = "https://api.themoviedb.org/3";
 
@@ -11,7 +12,7 @@ function key(): string {
 export const tmdbSearchMovie = createServerFn({ method: "POST" })
   .inputValidator((v: { query: string; year?: number }) => v)
   .handler(async ({ data }) => {
-    if (!data.query.trim()) return { results: [] as unknown[] };
+    if (!data.query.trim()) return { results: [] as TmdbSearchHit[] };
     const url = new URL(`${BASE}/search/movie`);
     url.searchParams.set("query", data.query);
     url.searchParams.set("language", "pt-BR");
@@ -20,7 +21,7 @@ export const tmdbSearchMovie = createServerFn({ method: "POST" })
     url.searchParams.set("api_key", key());
     const r = await fetch(url.toString());
     if (!r.ok) throw new Error(`TMDB ${r.status}`);
-    return (await r.json()) as { results: unknown[] };
+    return (await r.json()) as { results: TmdbSearchHit[] };
   });
 
 export const tmdbMovieDetail = createServerFn({ method: "POST" })
@@ -32,5 +33,5 @@ export const tmdbMovieDetail = createServerFn({ method: "POST" })
     url.searchParams.set("api_key", key());
     const r = await fetch(url.toString());
     if (!r.ok) throw new Error(`TMDB ${r.status}`);
-    return (await r.json()) as unknown;
+    return (await r.json()) as TmdbMovieDetail;
   });
