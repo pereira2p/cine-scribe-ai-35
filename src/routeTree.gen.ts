@@ -16,6 +16,7 @@ import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedFavoritesRouteImport } from './routes/_authenticated/favorites'
+import { Route as AuthenticatedWatchMovieIdRouteImport } from './routes/_authenticated/watch.$movieId'
 import { Route as AuthenticatedMovieMovieIdRouteImport } from './routes/_authenticated/movie.$movieId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -52,6 +53,12 @@ const AuthenticatedFavoritesRoute = AuthenticatedFavoritesRouteImport.update({
   path: '/favorites',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWatchMovieIdRoute =
+  AuthenticatedWatchMovieIdRouteImport.update({
+    id: '/watch/$movieId',
+    path: '/watch/$movieId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMovieMovieIdRoute =
   AuthenticatedMovieMovieIdRouteImport.update({
     id: '/movie/$movieId',
@@ -67,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
+  '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
 export interface FileRoutesByTo {
   '/favorites': typeof AuthenticatedFavoritesRoute
@@ -76,6 +84,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
+  '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,6 +96,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
+  '/_authenticated/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/movie/$movieId'
+    | '/watch/$movieId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/favorites'
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/'
     | '/movie/$movieId'
+    | '/watch/$movieId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -117,6 +129,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/'
     | '/_authenticated/movie/$movieId'
+    | '/_authenticated/watch/$movieId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFavoritesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/watch/$movieId': {
+      id: '/_authenticated/watch/$movieId'
+      path: '/watch/$movieId'
+      fullPath: '/watch/$movieId'
+      preLoaderRoute: typeof AuthenticatedWatchMovieIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/movie/$movieId': {
       id: '/_authenticated/movie/$movieId'
       path: '/movie/$movieId'
@@ -192,6 +212,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedMovieMovieIdRoute: typeof AuthenticatedMovieMovieIdRoute
+  AuthenticatedWatchMovieIdRoute: typeof AuthenticatedWatchMovieIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -202,6 +223,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedMovieMovieIdRoute: AuthenticatedMovieMovieIdRoute,
+  AuthenticatedWatchMovieIdRoute: AuthenticatedWatchMovieIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

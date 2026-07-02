@@ -18,7 +18,6 @@ import "@fontsource/inter/800.css";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -86,11 +85,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#1a0d10" },
-      { title: "MyVault — Sua biblioteca pessoal de filmes" },
-      { name: "description", content: "MyVault organiza sua biblioteca de filmes com inteligência artificial. Visual cinematográfico, totalmente seu." },
-      { name: "author", content: "MyVault" },
-      { property: "og:title", content: "MyVault — Sua biblioteca pessoal de filmes" },
-      { property: "og:description", content: "Cinema pessoal com IA. Adicione, organize e assista de qualquer lugar." },
+      { title: "CineVault Portable — Sua biblioteca local de filmes" },
+      { name: "description", content: "CineVault Portable organiza automaticamente sua pasta de filmes com metadados TMDB. 100% local, sem uploads." },
+      { name: "author", content: "CineVault" },
+      { property: "og:title", content: "CineVault Portable" },
+      { property: "og:description", content: "Media center inteligente para sua biblioteca local de filmes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -122,30 +121,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const router = useRouter();
-
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
-    });
-    const onPageHide = () => {
-      try {
-        if (localStorage.getItem("mv_remember_me") === "0") {
-          void supabase.auth.signOut();
-        }
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener("pagehide", onPageHide);
-    return () => {
-      sub.subscription.unsubscribe();
-      window.removeEventListener("pagehide", onPageHide);
-    };
-  }, [router, queryClient]);
-
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
