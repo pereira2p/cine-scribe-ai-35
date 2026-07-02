@@ -1,78 +1,58 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { useMemo } from "react";
 import { z } from "zod";
-import { Sparkles, Loader2 } from "lucide-react";
-import { UniversalSearchBar } from "@/components/UniversalSearchBar";
-import { SearchResultCard } from "@/components/SearchResultCard";
-import { universalSearch } from "@/lib/search/universal.functions";
-import { friendlyError } from "@/lib/errors";
+import { MovieCard, type MovieCardData } from "@/components/MovieCard";
+import { db, type LocalMovie } from "@/lib/db/local";
 
-const SearchSchema = z.object({ q: z.string().optional() });
+const schema = z.object({ q: z.string().optional().default("") });
 
 export const Route = createFileRoute("/_authenticated/search")({
-  validateSearch: (s) => SearchSchema.parse(s),
+  validateSearch: schema,
   component: SearchPage,
 });
 
-function SearchPage() {
-  const { q: initialQ } = Route.useSearch();
-  const [debounced, setDebounced] = useState(initialQ ?? "");
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced((initialQ ?? "").trim()), 50);
-    return () => clearTimeout(id);
-  }, [initialQ]);
+function toCard(m: LocalMovie): MovieCardData {
+  return {
+    id: String(m.tmdbId),
+    title: m.title,
+    release_year: m.releaseYear ?? null,
+    poster_path: m.posterPath ?? null,
+    vote_average: m.voteAverage ?? null,
+  };
+}
 
-  const search = useServerFn(universalSearch);
-  const { data, isFetching, error } = useQuery({
-    queryKey: ["universal-search", debounced],
-    queryFn: () => search({ data: { query: debounced } }),
-    enabled: debounced.length >= 1,
-    staleTime: 30_000,
-    retry: false,
-  });
+function SearchPage() {
+  const { q } = Route.useSearch();
+  const query = q.trim().toLowerCase();
+
+  const all = useLiveQuery(async () => db.movies.toArray(), []);
+
+  const results = useMemo(() => {
+    if (!all) return null;
+    if (!query) return all;
+    return all.filter((m) => {
+      const hay =
+        `${m.title} ${m.originalTitle ?? ""} ${m.director ?? ""} ${(m.genres ?? []).join(" ")} ${(m.cast ?? []).map((c) => c.name).join(" ")}`.toLowerCase();
+      return hay.includes(query);
+    });
+  }, [all, query]);
 
   return (
     <div className="mx-auto max-w-[1800px] px-4 py-8 sm:px-6 lg:px-10">
-      <div className="mb-8">
-        <UniversalSearchBar />
-      </div>
-
-      {debounced && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <Sparkles className="h-4 w-4 text-primary" />
-          Resultados para <span className="font-medium text-foreground">"{debounced}"</span>
-          {isFetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {query ? `Resultados para "${q}"` : "Pesquisar"}
+        </h1>
+        <p className="text-sm text-muted-foreground">{results?.length ?? 0} filmes</p>
+      </header>
+      {results && results.length > 0 ? (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+          {results.map((m) => <MovieCard key={m.tmdbId} movie={toCard(m)} />)}
         </div>
-      )}
-
-      {error && (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {friendlyError(error)}
-        </p>
-      )}
-
-      {data && data.errors.length > 0 && (
-        <ul className="mb-4 space-y-1 text-xs text-muted-foreground">
-          {data.errors.map((e, i) => (
-            <li key={i}>· {e.message}</li>
-          ))}
-        </ul>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {data?.results.map((r) => <SearchResultCard key={r.key} result={r} />)}
-      </div>
-
-      {!isFetching && data?.results.length === 0 && (
-        <p className="py-16 text-center text-sm text-muted-foreground">
-          Nenhum resultado encontrado. Tente outro termo ou cole um link.
-        </p>
-      )}
-      {!debounced && (
-        <p className="py-16 text-center text-sm text-muted-foreground">
-          Comece digitando um título, diretor, gênero ou cole um link.
+      ) : (
+        <p className="text-muted-foreground">
+          {query ? "Nenhum resultado na sua biblioteca." : "Digite algo para pesquisar."}
         </p>
       )}
     </div>

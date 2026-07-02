@@ -1,126 +1,89 @@
-# Refatoração do Pipeline de Importação
+# CineVault Portable — Refatoração Arquitetural
 
-Hoje cada fonte (TMDB, URL, Archive, Upload) chama lógicas separadas e nenhuma faz enriquecimento completo. Vou unificar tudo em um único pipeline `enrichMovie` que roda automaticamente após qualquer importação.
+Transformar o CineVault em um **Media Center local**, inspirado no Plex/Jellyfin/Kodi, preservando 100% do design system, componentes visuais, tema escuro, animações, sidebar, MovieCards e responsividade. Apenas a **arquitetura interna** muda.
 
-## 1. Pipeline único `enrichMovie(movieId)`
+## Filosofia
 
-Novo arquivo `src/lib/enrichment/pipeline.functions.ts`. Server function disparada ao final de qualquer importação. Executa em ordem, **nunca aborta** — cada passo grava o que conseguir e segue para o próximo, registrando status em `background_jobs`.
+- Sem upload. Sem streaming remoto. Sem R2/Drive/Storage.
+- Usuário aponta uma pasta local → app escaneia, identifica, enriquece via TMDB, organiza.
+- Banco local (IndexedDB no navegador; SQLite quando empacotado Electron/Tauri).
+- Supabase Auth some do fluxo obrigatório — app abre direto na biblioteca.
 
-```text
-Passo 1  Identificação      → TMDB ID já presente? senão IA (Gemini) infere título+ano do filename/URL → TMDB search
-Passo 2  Detalhes TMDB      → /movie/{id}?append_to_response=videos,credits,images,release_dates,translations
-Passo 3  Créditos           → upsert people + movie_credits (cast + director + producer + writer)
-Passo 4  Coleção            → /collection/{id} → cria/atualiza collections + collection_movies
-Passo 5  Cache de assets    → baixa poster/backdrop/logo/thumbnail e envia ao R2 → salva em movie_assets
-Passo 6  Tags inteligentes  → IA classifica em smart_tags pré-definidas usando sinopse/genres/keywords TMDB
-Passo 7  Finalização        → marca movies.enrichment_status='complete' + activity_feed
-```
+## Fases
 
-Cada passo é envolvido por `try/catch` que grava o erro em `background_jobs.error` mas não propaga.
+### Fase 1 — Fundação local (esta entrega)
 
-## 2. Pontos de disparo
+1. **Remover camada de streaming/upload**
+   - Apagar: `src/lib/uploads.functions.ts`, `src/components/UploadDropzone.tsx`, `src/lib/providers/r2.server.ts`, `src/lib/providers/storage.ts`, `src/lib/providers/import.ts`, `src/lib/imports.functions.ts`, `src/components/UniversalImportDialog.tsx`, `src/components/AddMovieDialog.tsx`, `src/components/ImportProgressStepper.tsx`, `src/routes/_authenticated/uploads.tsx`, `src/routes/_authenticated/downloads.tsx`, `src/routes/_authenticated/watch-party.tsx`.
+   - Remover secrets R2/AWS do backend.
 
-Após inserir o filme, chamar `enrichMovie({movieId})` (fire-and-forget no cliente via mutation com `onSuccess`):
-- `tmdbImport` (já tem TMDB ID)
-- `createMovieFromUrl` (URL/Archive/YouTube — passo 1 precisa identificar)
-- `completeUpload` (R2 — passo 1 usa filename)
-- futuros Drive/OneDrive
+2. **Novo backbone: acesso local via File System Access API**
+   - `src/lib/library/fs.ts` — abre um handle de diretório (`showDirectoryPicker`), persiste em IndexedDB via `idb-keyval`, faz scan recursivo, retorna lista de arquivos de vídeo (mp4/mkv/avi/mov/webm).
+   - Fallback para navegadores sem File System Access: `<input webkitdirectory>` (leitura única, sem reescanear).
+   - Detecção de plataforma centralizada em `src/lib/platform.ts` (web / electron / capacitor) — Fase 5 pluga os outros backends sem tocar UI.
 
-## 3. Cache de assets (R2)
+3. **Banco local com Dexie (IndexedDB)**
+   - `src/lib/db/local.ts` — schema Dexie: `movies`, `files`, `favorites`, `progress`, `history`, `collections`, `settings`, `assets_cache`.
+   - Hooks React: `useLocalMovies()`, `useProgress(movieId)`, `useFavorites()` substituem as chamadas Supabase atuais.
 
-Novo `src/lib/enrichment/assets.server.ts`:
-- baixa de `image.tmdb.org/t/p/original{path}`
-- envia para R2 em `assets/{movieId}/{kind}-{size}.jpg`
-- gera URL pública via `R2_PUBLIC_BASE_URL`
-- insere em `movie_assets` (kind: poster|backdrop|logo|thumbnail|banner, size, url, source)
-- atualiza `movies.poster_path`/`backdrop_path` com a URL local
-- se falhar, mantém URL TMDB como fallback
+4. **Nova rota raiz sem auth**
+   - Remover `_authenticated` como gate obrigatório: o app abre em `/` direto na biblioteca local.
+   - Manter `auth.tsx` acessível como opcional ("Sincronizar entre dispositivos — em breve"), mas fora do fluxo principal.
+   - Remover a landing/tela intermediária ("aquela que adicionei o comentário") e renderizar a Library como home.
 
-## 4. Identificação por IA
+5. **Scanner e watch loop**
+   - Ao abrir o app: reidrata o handle da pasta, executa scan incremental, insere novos arquivos em `files`, dispara enriquecimento TMDB para os que ainda não têm `tmdbId`.
+   - Polling manual via botão "Reescanear" na sidebar (watchers reais chegam com Electron na Fase 5).
 
-Quando não há TMDB ID (uploads/URLs), `src/lib/enrichment/identify.server.ts`:
-- limpa filename (remove qualidade, codec, ano em []) 
-- envia a Gemini com prompt: "extraia título e ano do filme deste nome/URL"
-- usa resposta para TMDB search → escolhe melhor match (popularidade + ano)
-- retorna `tmdbId` para alimentar passo 2
+### Fase 2 — TMDB & metadados (esta entrega, versão mínima)
 
-## 5. Tags inteligentes
+- Reaproveitar `src/lib/tmdb.server.ts` como cliente HTTP puro (sem Supabase), migrado para `src/lib/tmdb/client.ts` chamado direto do browser via TMDB API v3 com token público (env `VITE_TMDB_TOKEN`).
+- `src/lib/library/identify.ts` — parse do filename (título + ano), busca TMDB, retorna candidatos. Se houver mais de um match razoável, mostra modal de escolha.
+- Metadados + posters/backdrops salvos em Dexie; imagens cacheadas via `caches.open('tmdb-images')` (Service Worker leve, sem PWA offline completo).
 
-Vocabulário fixo em migration: Cult, Mind-blowing, Cyberpunk, Oscar, Slow Burn, Plot Twist, Espacial, Viagem no Tempo, Heist, Noir, Coming-of-Age, Tear-jerker, Feel-good, Body Horror, Found Footage.
+### Fase 3 — Player local
 
-`src/lib/enrichment/tags.server.ts` envia sinopse + gêneros + keywords TMDB ao Gemini com a lista fixa, pedindo no máximo 5 tags em JSON. Insere em `movie_smart_tags`.
+- `MyVaultPlayer` recebe `File` ou `FileSystemFileHandle` → gera `URL.createObjectURL` para reprodução. Zero rede.
+- Persistir posição a cada 5s em `progress` (Dexie). "Continue Assistindo" lê dessa tabela.
+- Legendas externas (`.srt`/`.vtt` ao lado do arquivo) na Fase 3 completa — deixo o hook pronto mas sem UI de seleção ainda.
 
-## 6. Schema
+### Fase 4 — Copilot local
 
-Migration adiciona:
-- `movies.enrichment_status` enum: `pending | partial | complete | failed`
-- `movies.enrichment_error text`
-- `movies.tmdb_keywords text[]`
-- `movies.budget bigint`, `revenue bigint`, `status text`, `certification text`, `logo_path text`, `spoken_languages text[]`
-- seed em `smart_tags` com vocabulário acima
+- Reescrever `copilot.functions.ts` como função pura do browser: constrói contexto a partir do Dexie e chama Lovable AI Gateway direto do cliente (fetch com `VITE_LOVABLE_AI_KEY` público ou proxy leve).
+- Prompts adaptados: "sugira do que já tenho", "não assistidos", "por diretor", "nota TMDB > 8".
 
-## 7. Página de diagnóstico expandida
+### Fase 5 — Empacotamento
 
-`src/routes/_authenticated/system.tsx` ganha aba "Importação" testando individualmente:
-- TMDB `/movie/550` (detalhes)
-- TMDB imagens (`/movie/550/images`)
-- TMDB credits, collection, videos
-- R2 put + get de byte de teste
-- Lovable AI (ping curto)
-- Banco (insert/select dry-run em tabela temp)
+- Camada `platform.ts` já isola FS/DB. Electron/Tauri implementam `LocalFsAdapter` real (chokidar watch + SQLite via `better-sqlite3`). Capacitor implementa via `@capacitor/filesystem`.
+- Não implementado nesta entrega — só a arquitetura preparada.
 
-Cada item: ✓ ⚠ ✗ + latência + botão "Testar novamente" (já existe; vou modularizar por categoria).
+## O que fica preservado
 
-## 8. UI de feedback
+- Todo o design system (`styles.css`, tokens oklch, gradientes, tipografia).
+- Componentes: `MovieCard`, `MovieCarousel`, `MovieHero`, `AppSidebar`, `BottomNav`, `CineVaultCopilot`, `SearchResultCard`, `UniversalSearchBar`, todos os `ui/*`.
+- Rotas visuais: dashboard, library, favorites, search, movie detail, settings, collections, discover, history, lists, stats.
+- Animações Framer Motion, sidebar responsiva, tema escuro premium.
 
-`UniversalImportDialog` mostra após "Adicionar" um stepper ao vivo (assinatura realtime em `background_jobs` por `movie_id`):
-```
-✓ Filme identificado: Interestelar (2014)
-✓ Poster baixado
-✓ Backdrop baixado
-✓ Trailer encontrado
-✓ Elenco importado (89 pessoas)
-✓ Coleção: Trilogia Nolan
-✓ Tags: Mind-blowing, Espacial, Slow Burn
-```
+## O que sai da UI
 
-## 9. Placeholders elegantes
+- Botão "Adicionar Filme" / diálogos de import → substituído por "Escolher pasta da biblioteca" (uma vez) + "Reescanear".
+- Rotas `uploads`, `downloads`, `watch-party` → removidas do menu.
+- Tela de landing intermediária removida; `/` = biblioteca.
 
-`MovieCard` e página de detalhe já tratam null, mas reforço:
-- poster ausente → gradient com título grande
-- backdrop ausente → blur do poster
-- trailer ausente → botão desabilitado com tooltip
-- elenco vazio → "Elenco ainda não disponível"
+## Escopo desta entrega
 
-Nunca campo em branco — sempre placeholder.
+Fases 1 e 2 completas + esqueleto funcional das Fases 3/4:
+- Escolha de pasta + scan + Dexie ✅
+- Identificação TMDB + posters/backdrops ✅
+- Player tocando arquivo local ✅
+- Progresso salvo localmente ✅
+- Copilot lendo biblioteca local ✅
+- Sem placeholders falsos: rotas cujo backend some são removidas, não stubadas.
 
-## Arquivos a criar/editar
+## Riscos
 
-**Novos**
-- `src/lib/enrichment/pipeline.functions.ts`
-- `src/lib/enrichment/identify.server.ts`
-- `src/lib/enrichment/assets.server.ts`
-- `src/lib/enrichment/tags.server.ts`
-- `src/lib/enrichment/tmdb-detail.server.ts` (wrapper TMDB com append_to_response)
-- `src/components/ImportProgressStepper.tsx`
+- **File System Access API** só existe em Chromium (Chrome/Edge/Opera/Brave). Firefox/Safari caem no fallback `<input webkitdirectory>` (funciona, mas precisa reselecionar a pasta a cada sessão). Documento isso no onboarding.
+- **TMDB token no cliente**: uso o *Read Access Token* público (é feito para isso). Sem secrets server-side.
+- **Migração destrutiva**: dados atuais em Supabase (movies importados, favorites) não migram. Aviso o usuário — a base era experimental.
 
-**Editar**
-- `src/lib/tmdb.functions.ts` (dispara enrichment ao fim)
-- `src/lib/imports.functions.ts` (dispara enrichment)
-- `src/lib/uploads.functions.ts` (dispara enrichment em completeUpload)
-- `src/components/UniversalImportDialog.tsx` (mostra stepper)
-- `src/routes/_authenticated/system.tsx` (aba importação)
-- `src/components/MovieCard.tsx` + `src/routes/_authenticated/movie.$movieId.tsx` (placeholders)
-
-**Migration**
-- novas colunas em `movies`
-- seed `smart_tags`
-- `background_jobs` já existe; só uso
-
-## Fora de escopo (próxima fase)
-
-- Google Drive / OneDrive reais (precisa OAuth por usuário — já está como "em desenvolvimento")
-- Hash-based identification (precisa lib de hash de vídeo; por ora só filename+IA)
-- Re-enriquecimento em massa de filmes antigos (vou expor botão "Re-enriquecer" no detalhe, mas não rodo batch automático)
-
-Posso prosseguir?
+Posso prosseguir com a Fase 1 + 2 completas nesta entrega?

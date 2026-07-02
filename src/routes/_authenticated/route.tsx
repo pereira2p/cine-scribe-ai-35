@@ -1,33 +1,31 @@
-import { createFileRoute, Outlet, redirect, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search as SearchIcon, LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Search as SearchIcon, FolderOpen, RefreshCw } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CineVaultCopilot } from "@/components/CineVaultCopilot";
-import { AddMovieDialog } from "@/components/AddMovieDialog";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LibraryProvider, useLibrary } from "@/lib/library/context";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
-  },
-  component: AuthedShell,
+  component: Shell,
 });
+
+function Shell() {
+  return (
+    <LibraryProvider>
+      <AuthedShell />
+    </LibraryProvider>
+  );
+}
 
 function AuthedShell() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    navigate({ to: "/" });
-  }
+  const { hasRoot, chooseFolder, rescan, scanning, progress } = useLibrary();
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -56,14 +54,34 @@ function AuthedShell() {
               />
             </form>
             <div className="ml-auto flex items-center gap-2">
-              <div className="hidden md:block">
-                <AddMovieDialog />
-              </div>
-              <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
-                <LogOut className="h-4 w-4" />
-              </Button>
+              {hasRoot ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void rescan()}
+                  disabled={scanning}
+                  className="hidden gap-1.5 md:inline-flex"
+                >
+                  <RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} />
+                  {scanning ? "Escaneando" : "Escanear"}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => void chooseFolder()}
+                  className="gap-1.5 bg-gradient-primary text-primary-foreground shadow-glow"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  Escolher pasta
+                </Button>
+              )}
             </div>
           </header>
+          {scanning && progress && (
+            <div className="border-b border-border/60 bg-surface/80 px-4 py-2 text-xs text-muted-foreground">
+              Analisando ({progress.current}/{progress.total}) — {progress.name}
+            </div>
+          )}
           <main className="min-w-0 flex-1 pb-20 md:pb-0">
             <Outlet />
           </main>
@@ -74,6 +92,3 @@ function AuthedShell() {
     </SidebarProvider>
   );
 }
-
-// avoid TS unused warning for Link in dev splits
-void Link;

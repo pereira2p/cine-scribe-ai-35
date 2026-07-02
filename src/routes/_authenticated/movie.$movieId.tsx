@@ -1,14 +1,11 @@
 import { createFileRoute, useNavigate, notFound } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { Heart, Plus, Check, Play, Trash2, ChevronLeft, Star, Upload } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Heart, Play, Trash2, ChevronLeft, Star, FileVideo } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { toggleFavorite, toggleWatchlist, markWatched, deleteMovie } from "@/lib/movies.functions";
-import { UploadDropzone } from "@/components/UploadDropzone";
+import { db } from "@/lib/db/local";
 
 export const Route = createFileRoute("/_authenticated/movie/$movieId")({
   component: MoviePage,
@@ -16,223 +13,151 @@ export const Route = createFileRoute("/_authenticated/movie/$movieId")({
 
 function MoviePage() {
   const { movieId } = Route.useParams();
+  const tmdbId = Number(movieId);
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data: movie, isLoading } = useQuery({
-    queryKey: ["movie", movieId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("movies")
-        .select("*, movie_genres(genres(name)), movie_credits(role, character_name, ord, people(id,name,profile_path))")
-        .eq("id", movieId)
-        .maybeSingle();
-      if (!data) throw notFound();
-      return data;
+  const movie = useLiveQuery(async () => db.movies.get(tmdbId), [tmdbId]);
+  const file = useLiveQuery(async () => {
+    if (!movie?.filePath) return undefined;
+    return db.files.get(movie.filePath);
+  }, [movie?.filePath]);
+  const isFav = useLiveQuery(async () => (await db.favorites.get(tmdbId)) != null, [tmdbId]);
+
+  const toggleFav = useMutation({
+    mutationFn: async () => {
+      const cur = await db.favorites.get(tmdbId);
+      if (cur) await db.favorites.delete(tmdbId);
+      else await db.favorites.add({ movieId: tmdbId, createdAt: Date.now() });
     },
+    onSuccess: () => qc.invalidateQueries(),
   });
 
-  const { data: isFavorited } = useQuery({
-    queryKey: ["fav", movieId],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("favorites")
-        .select("user_id", { head: true, count: "exact" })
-        .eq("movie_id", movieId);
-      return (count ?? 0) > 0;
+  const remove = useMutation({
+    mutationFn: async () => {
+      if (movie?.filePath) await db.files.update(movie.filePath, { movieId: undefined });
+      await db.movies.delete(tmdbId);
+      await db.favorites.delete(tmdbId);
+      await db.progress.delete(tmdbId);
     },
-  });
-  const { data: inList } = useQuery({
-    queryKey: ["wl", movieId],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("watchlist_movies")
-        .select("movie_id", { head: true, count: "exact" })
-        .eq("movie_id", movieId);
-      return (count ?? 0) > 0;
-    },
-  });
-
-  const favFn = useServerFn(toggleFavorite);
-  const wlFn = useServerFn(toggleWatchlist);
-  const watchedFn = useServerFn(markWatched);
-  const deleteFn = useServerFn(deleteMovie);
-
-  const favMut = useMutation({
-    mutationFn: () => favFn({ data: { movieId } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["fav", movieId] }),
-  });
-  const wlMut = useMutation({
-    mutationFn: () => wlFn({ data: { movieId } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["wl", movieId] }),
-  });
-  const watchedMut = useMutation({
-    mutationFn: () => watchedFn({ data: { movieId, watched: true } }),
-    onSuccess: () => toast.success("Marcado como assistido"),
-  });
-  const delMut = useMutation({
-    mutationFn: () => deleteFn({ data: { movieId } }),
     onSuccess: () => {
-      toast.success("Filme removido");
-      qc.invalidateQueries({ queryKey: ["movies"] });
+      toast.success("Removido da biblioteca (o arquivo original não foi apagado).");
       navigate({ to: "/library" });
     },
   });
 
-  if (isLoading) return <div className="p-10 text-muted-foreground">Carregando...</div>;
-  if (!movie) return <div className="p-10 text-muted-foreground">Filme não encontrado.</div>;
+  if (movie === undefined) return <div className="p-10 text-muted-foreground">Carregando...</div>;
+  if (movie === null) throw notFound();
 
-  const directors = (movie.movie_credits ?? []).filter((c: { role: string }) => c.role === "director");
-  const cast = (movie.movie_credits ?? [])
-    .filter((c: { role: string }) => c.role === "cast")
-    .sort((a: { ord: number | null }, b: { ord: number | null }) => (a.ord ?? 99) - (b.ord ?? 99));
-  const genres = (movie.movie_genres ?? []).map((g: { genres: { name: string } | null }) => g.genres?.name).filter(Boolean);
-  const hasFile = Boolean((movie as unknown as { storage_key?: string | null }).storage_key);
+  const hasFile = Boolean(file?.handle);
 
   return (
     <div className="pb-16">
       <section className="relative h-[70vh] min-h-[480px] w-full overflow-hidden">
-        {movie.backdrop_path && (
-          <img src={movie.backdrop_path} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        {movie.backdropPath && (
+          <img src={movie.backdropPath} alt="" className="absolute inset-0 h-full w-full object-cover" />
         )}
         <div className="absolute inset-0 bg-backdrop-fade" />
         <div className="absolute inset-0 bg-backdrop-bottom" />
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/library" })} className="absolute left-4 top-4 z-10 gap-1 bg-background/40 backdrop-blur">
           <ChevronLeft className="h-4 w-4" /> Voltar
         </Button>
-        <div className="relative z-10 mx-auto flex h-full max-w-6xl items-end gap-6 px-4 pb-12 sm:px-8">
-          {movie.poster_path && (
-            <motion.img
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              src={movie.poster_path}
-              alt={movie.title}
-              className="hidden h-72 rounded-xl shadow-elevated md:block"
-            />
-          )}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 flex-1">
-            <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">{movie.title}</h1>
-            {movie.tagline && <p className="mt-1 italic text-muted-foreground">{movie.tagline}</p>}
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {movie.release_year && <span>{movie.release_year}</span>}
-              {movie.runtime_minutes && <span>{Math.floor(movie.runtime_minutes / 60)}h {movie.runtime_minutes % 60}m</span>}
-              {movie.vote_average != null && (
-                <span className="inline-flex items-center gap-1 text-foreground">
-                  <Star className="h-3.5 w-3.5 fill-current text-chart-3" /> {Number(movie.vote_average).toFixed(1)}
-                </span>
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.5 }} className="absolute inset-x-0 bottom-0 mx-auto max-w-5xl px-6 pb-10">
+          <div className="flex flex-wrap items-end gap-6">
+            {movie.posterPath && (
+              <img src={movie.posterPath} alt="" className="hidden h-56 w-40 rounded-xl shadow-elevated sm:block" />
+            )}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">{movie.title}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                {movie.releaseYear && <span>{movie.releaseYear}</span>}
+                {movie.runtime && <span>· {movie.runtime} min</span>}
+                {movie.voteAverage != null && (
+                  <span className="inline-flex items-center gap-1">
+                    · <Star className="h-3.5 w-3.5 fill-current text-chart-3" /> {movie.voteAverage.toFixed(1)}
+                  </span>
+                )}
+                {movie.director && <span>· dir. {movie.director}</span>}
+              </div>
+              {movie.genres && movie.genres.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {movie.genres.map((g) => (
+                    <span key={g} className="rounded-full border border-border bg-surface/70 px-2 py-0.5 text-xs">{g}</span>
+                  ))}
+                </div>
               )}
-              {genres.length > 0 && <span>{genres.join(" • ")}</span>}
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2">
-              {hasFile ? (
+              <div className="mt-5 flex flex-wrap gap-2">
                 <Button
-                  size="lg"
+                  disabled={!hasFile}
                   onClick={() => navigate({ to: "/watch/$movieId", params: { movieId } })}
-                  className="gap-2 bg-gradient-primary text-primary-foreground shadow-glow"
+                  className="gap-1.5 bg-gradient-primary text-primary-foreground shadow-glow"
                 >
                   <Play className="h-4 w-4 fill-current" /> Assistir
                 </Button>
-              ) : (
-                <UploadButton movieId={movieId} movieTitle={movie.title} onDone={() => qc.invalidateQueries({ queryKey: ["movie", movieId] })} />
+                <Button variant="secondary" onClick={() => toggleFav.mutate()} className="gap-1.5">
+                  <Heart className={`h-4 w-4 ${isFav ? "fill-current text-primary" : ""}`} />
+                  {isFav ? "Favorito" : "Favoritar"}
+                </Button>
+                <Button variant="ghost" onClick={() => remove.mutate()} className="gap-1.5 text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-4 w-4" /> Remover
+                </Button>
+              </div>
+              {!hasFile && (
+                <p className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/70 px-2 py-1 text-xs text-muted-foreground">
+                  <FileVideo className="h-3.5 w-3.5" />
+                  Arquivo local não encontrado — reescaneie a pasta.
+                </p>
               )}
-              <Button variant="secondary" onClick={() => favMut.mutate()} className="gap-2">
-                <Heart className={"h-4 w-4 " + (isFavorited ? "fill-current text-primary" : "")} />
-                {isFavorited ? "Favorito" : "Favoritar"}
-              </Button>
-              <Button variant="secondary" onClick={() => wlMut.mutate()} className="gap-2">
-                {inList ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {inList ? "Na lista" : "Minha lista"}
-              </Button>
-              <Button variant="secondary" onClick={() => watchedMut.mutate()} className="gap-2">
-                <Check className="h-4 w-4" /> Já assisti
-              </Button>
-              <Button variant="ghost" onClick={() => delMut.mutate()} className="gap-2 text-muted-foreground hover:text-destructive">
-                <Trash2 className="h-4 w-4" /> Remover
-              </Button>
             </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </section>
 
-      <div className="mx-auto max-w-6xl space-y-10 px-4 pt-10 sm:px-8">
-        {movie.overview && (
-          <section>
-            <h2 className="mb-2 text-lg font-semibold">Sinopse</h2>
-            <p className="max-w-3xl text-muted-foreground">{movie.overview}</p>
-          </section>
-        )}
-        {directors.length > 0 && (
-          <section>
-            <h2 className="mb-2 text-lg font-semibold">Direção</h2>
-            <p className="text-muted-foreground">
-              {directors.map((d: { people: { name: string } | null }) => d.people?.name).filter(Boolean).join(", ")}
-            </p>
-          </section>
-        )}
-        {cast.length > 0 && (
-          <section>
+      <section className="mx-auto max-w-5xl px-6 pt-8">
+        {movie.overview && <p className="max-w-3xl text-base leading-relaxed text-foreground/90">{movie.overview}</p>}
+
+        {movie.cast && movie.cast.length > 0 && (
+          <div className="mt-10">
             <h2 className="mb-3 text-lg font-semibold">Elenco</h2>
-            <div className="scrollbar-hide flex gap-3 overflow-x-auto">
-              {cast.slice(0, 12).map((c: { people: { id: number; name: string; profile_path: string | null } | null; character_name: string | null }) => (
-                <div key={c.people?.id} className="w-28 shrink-0 text-center">
-                  <div className="aspect-[2/3] overflow-hidden rounded-lg bg-surface">
-                    {c.people?.profile_path && (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w185${c.people.profile_path}`}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
+            <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-2">
+              {movie.cast.map((c) => (
+                <div key={`${c.name}-${c.character ?? ""}`} className="w-28 shrink-0">
+                  <div className="aspect-[2/3] overflow-hidden rounded-xl bg-surface">
+                    {c.profile ? (
+                      <img src={`https://image.tmdb.org/t/p/w342${c.profile}`} alt={c.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">Sem foto</div>
                     )}
                   </div>
-                  <p className="mt-2 line-clamp-1 text-xs font-medium">{c.people?.name}</p>
-                  {c.character_name && <p className="line-clamp-1 text-[10px] text-muted-foreground">{c.character_name}</p>}
+                  <div className="mt-1.5">
+                    <p className="line-clamp-1 text-xs font-medium">{c.name}</p>
+                    {c.character && <p className="line-clamp-1 text-[11px] text-muted-foreground">{c.character}</p>}
+                  </div>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
-        {movie.trailer_key && (
-          <section>
+
+        {movie.trailerKey && (
+          <div className="mt-10">
             <h2 className="mb-3 text-lg font-semibold">Trailer</h2>
-            <div className="aspect-video max-w-3xl overflow-hidden rounded-xl border border-border bg-black shadow-card">
+            <div className="aspect-video w-full overflow-hidden rounded-2xl border border-border">
               <iframe
-                src={`https://www.youtube.com/embed/${movie.trailer_key}`}
-                title="Trailer"
-                className="h-full w-full"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                src={`https://www.youtube.com/embed/${movie.trailerKey}`}
+                allow="autoplay; encrypted-media; picture-in-picture"
                 allowFullScreen
+                className="h-full w-full"
+                title="Trailer"
               />
             </div>
-          </section>
+          </div>
         )}
-      </div>
-    </div>
-  );
-}
 
-function UploadButton({
-  movieId,
-  movieTitle,
-  onDone,
-}: {
-  movieId: string;
-  movieTitle: string;
-  onDone: () => void;
-}) {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button size="lg" className="gap-2 bg-gradient-primary text-primary-foreground shadow-glow">
-          <Upload className="h-4 w-4" /> Enviar arquivo
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Enviar arquivo para "{movieTitle}"</DialogTitle>
-        </DialogHeader>
-        <UploadDropzone movieId={movieId} onCompleted={onDone} />
-      </DialogContent>
-    </Dialog>
+        {file && (
+          <p className="mt-10 truncate text-xs text-muted-foreground">Arquivo: {file.path}</p>
+        )}
+      </section>
+    </div>
   );
 }

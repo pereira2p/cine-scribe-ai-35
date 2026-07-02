@@ -1,32 +1,39 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { MovieCard, MovieCardSkeleton, type MovieCardData } from "@/components/MovieCard";
+import { useLiveQuery } from "dexie-react-hooks";
+import { MovieCard, type MovieCardData } from "@/components/MovieCard";
+import { db, type LocalMovie } from "@/lib/db/local";
 
-export const Route = createFileRoute("/_authenticated/favorites")({ component: Page });
+export const Route = createFileRoute("/_authenticated/favorites")({ component: FavoritesPage });
 
-function Page() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["favorites-page"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("favorites")
-        .select("created_at, movies(id,title,release_year,poster_path,vote_average)")
-        .order("created_at", { ascending: false });
-      return (data ?? []).map((r) => r.movies as unknown as MovieCardData).filter(Boolean);
-    },
-  });
+function toCard(m: LocalMovie): MovieCardData {
+  return {
+    id: String(m.tmdbId),
+    title: m.title,
+    release_year: m.releaseYear ?? null,
+    poster_path: m.posterPath ?? null,
+    vote_average: m.voteAverage ?? null,
+  };
+}
+
+function FavoritesPage() {
+  const movies = useLiveQuery(async () => {
+    const favs = await db.favorites.orderBy("createdAt").reverse().toArray();
+    const rows = await Promise.all(favs.map((f) => db.movies.get(f.movieId)));
+    return rows.filter(Boolean) as LocalMovie[];
+  }, []);
+
   return (
     <div className="mx-auto max-w-[1800px] px-4 py-8 sm:px-6 lg:px-10">
-      <h1 className="text-3xl font-bold tracking-tight">Favoritos</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{data?.length ?? 0} filmes marcados com ❤</p>
-      <div className="mt-8 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
-        {isLoading
-          ? Array.from({ length: 12 }).map((_, i) => <MovieCardSkeleton key={i} />)
-          : data?.map((m) => <MovieCard key={m.id} movie={m} />)}
-      </div>
-      {!isLoading && data?.length === 0 && (
-        <p className="py-16 text-center text-sm text-muted-foreground">Nenhum favorito ainda.</p>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">Favoritos</h1>
+        <p className="text-sm text-muted-foreground">{movies?.length ?? 0} filmes</p>
+      </header>
+      {(!movies || movies.length === 0) ? (
+        <p className="text-muted-foreground">Nenhum favorito ainda.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+          {movies.map((m) => <MovieCard key={m.tmdbId} movie={toCard(m)} />)}
+        </div>
       )}
     </div>
   );
