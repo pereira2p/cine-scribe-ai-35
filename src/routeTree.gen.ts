@@ -9,212 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
-import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
-import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
-import { Route as AuthenticatedFavoritesRouteImport } from './routes/_authenticated/favorites'
-import { Route as AuthenticatedWatchMovieIdRouteImport } from './routes/_authenticated/watch.$movieId'
-import { Route as AuthenticatedMovieMovieIdRouteImport } from './routes/_authenticated/movie.$movieId'
 
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedFavoritesRoute = AuthenticatedFavoritesRouteImport.update({
-  id: '/favorites',
-  path: '/favorites',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedWatchMovieIdRoute =
-  AuthenticatedWatchMovieIdRouteImport.update({
-    id: '/watch/$movieId',
-    path: '/watch/$movieId',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedMovieMovieIdRoute =
-  AuthenticatedMovieMovieIdRouteImport.update({
-    id: '/movie/$movieId',
-    path: '/movie/$movieId',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-
-export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedRouteRouteWithChildren
-  '/favorites': typeof AuthenticatedFavoritesRoute
-  '/history': typeof AuthenticatedHistoryRoute
-  '/library': typeof AuthenticatedLibraryRoute
-  '/search': typeof AuthenticatedSearchRoute
-  '/settings': typeof AuthenticatedSettingsRoute
-  '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
-  '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
-}
-export interface FileRoutesByTo {
-  '/': typeof AuthenticatedRouteRouteWithChildren
-  '/favorites': typeof AuthenticatedFavoritesRoute
-  '/history': typeof AuthenticatedHistoryRoute
-  '/library': typeof AuthenticatedLibraryRoute
-  '/search': typeof AuthenticatedSearchRoute
-  '/settings': typeof AuthenticatedSettingsRoute
-  '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
-  '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
-}
+export interface FileRoutesByFullPath {}
+export interface FileRoutesByTo {}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/_authenticated/favorites': typeof AuthenticatedFavoritesRoute
-  '/_authenticated/history': typeof AuthenticatedHistoryRoute
-  '/_authenticated/library': typeof AuthenticatedLibraryRoute
-  '/_authenticated/search': typeof AuthenticatedSearchRoute
-  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/_authenticated/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
-  '/_authenticated/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/favorites'
-    | '/history'
-    | '/library'
-    | '/search'
-    | '/settings'
-    | '/movie/$movieId'
-    | '/watch/$movieId'
+  fullPaths: never
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/favorites'
-    | '/history'
-    | '/library'
-    | '/search'
-    | '/settings'
-    | '/movie/$movieId'
-    | '/watch/$movieId'
-  id:
-    | '__root__'
-    | '/_authenticated'
-    | '/_authenticated/favorites'
-    | '/_authenticated/history'
-    | '/_authenticated/library'
-    | '/_authenticated/search'
-    | '/_authenticated/settings'
-    | '/_authenticated/movie/$movieId'
-    | '/_authenticated/watch/$movieId'
+  to: never
+  id: '__root__'
   fileRoutesById: FileRoutesById
 }
-export interface RootRouteChildren {
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-}
+export interface RootRouteChildren {}
 
 declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/search': {
-      id: '/_authenticated/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof AuthenticatedSearchRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/library': {
-      id: '/_authenticated/library'
-      path: '/library'
-      fullPath: '/library'
-      preLoaderRoute: typeof AuthenticatedLibraryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/history': {
-      id: '/_authenticated/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/favorites': {
-      id: '/_authenticated/favorites'
-      path: '/favorites'
-      fullPath: '/favorites'
-      preLoaderRoute: typeof AuthenticatedFavoritesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/watch/$movieId': {
-      id: '/_authenticated/watch/$movieId'
-      path: '/watch/$movieId'
-      fullPath: '/watch/$movieId'
-      preLoaderRoute: typeof AuthenticatedWatchMovieIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/movie/$movieId': {
-      id: '/_authenticated/movie/$movieId'
-      path: '/movie/$movieId'
-      fullPath: '/movie/$movieId'
-      preLoaderRoute: typeof AuthenticatedMovieMovieIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-  }
+  interface FileRoutesByPath {}
 }
 
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedFavoritesRoute: typeof AuthenticatedFavoritesRoute
-  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
-  AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
-  AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedMovieMovieIdRoute: typeof AuthenticatedMovieMovieIdRoute
-  AuthenticatedWatchMovieIdRoute: typeof AuthenticatedWatchMovieIdRoute
-}
-
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedFavoritesRoute: AuthenticatedFavoritesRoute,
-  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
-  AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
-  AuthenticatedSearchRoute: AuthenticatedSearchRoute,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
-  AuthenticatedMovieMovieIdRoute: AuthenticatedMovieMovieIdRoute,
-  AuthenticatedWatchMovieIdRoute: AuthenticatedWatchMovieIdRoute,
-}
-
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
-
-const rootRouteChildren: RootRouteChildren = {
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-}
+const rootRouteChildren: RootRouteChildren = {}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
