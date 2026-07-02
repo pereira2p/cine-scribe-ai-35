@@ -12,10 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedWatchPartyRouteImport } from './routes/_authenticated/watch-party'
-import { Route as AuthenticatedUploadsRouteImport } from './routes/_authenticated/uploads'
-import { Route as AuthenticatedSystemRouteImport } from './routes/_authenticated/system'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated/search'
@@ -23,7 +19,6 @@ import { Route as AuthenticatedListsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedFavoritesRouteImport } from './routes/_authenticated/favorites'
-import { Route as AuthenticatedDownloadsRouteImport } from './routes/_authenticated/downloads'
 import { Route as AuthenticatedDiscoverRouteImport } from './routes/_authenticated/discover'
 import { Route as AuthenticatedCollectionsRouteImport } from './routes/_authenticated/collections'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
@@ -43,26 +38,6 @@ const AuthRoute = AuthRouteImport.update({
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedWatchPartyRoute = AuthenticatedWatchPartyRouteImport.update({
-  id: '/watch-party',
-  path: '/watch-party',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedUploadsRoute = AuthenticatedUploadsRouteImport.update({
-  id: '/uploads',
-  path: '/uploads',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSystemRoute = AuthenticatedSystemRouteImport.update({
-  id: '/system',
-  path: '/system',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
   id: '/stats',
@@ -99,11 +74,6 @@ const AuthenticatedFavoritesRoute = AuthenticatedFavoritesRouteImport.update({
   path: '/favorites',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedDownloadsRoute = AuthenticatedDownloadsRouteImport.update({
-  id: '/downloads',
-  path: '/downloads',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedDiscoverRoute = AuthenticatedDiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
@@ -134,13 +104,12 @@ const AuthenticatedMovieMovieIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/app': typeof AuthenticatedAppRoute
   '/collections': typeof AuthenticatedCollectionsRoute
   '/discover': typeof AuthenticatedDiscoverRoute
-  '/downloads': typeof AuthenticatedDownloadsRoute
   '/favorites': typeof AuthenticatedFavoritesRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/library': typeof AuthenticatedLibraryRoute
@@ -148,20 +117,16 @@ export interface FileRoutesByFullPath {
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
-  '/system': typeof AuthenticatedSystemRoute
-  '/uploads': typeof AuthenticatedUploadsRoute
-  '/watch-party': typeof AuthenticatedWatchPartyRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
   '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/app': typeof AuthenticatedAppRoute
   '/collections': typeof AuthenticatedCollectionsRoute
   '/discover': typeof AuthenticatedDiscoverRoute
-  '/downloads': typeof AuthenticatedDownloadsRoute
   '/favorites': typeof AuthenticatedFavoritesRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/library': typeof AuthenticatedLibraryRoute
@@ -169,22 +134,17 @@ export interface FileRoutesByTo {
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
-  '/system': typeof AuthenticatedSystemRoute
-  '/uploads': typeof AuthenticatedUploadsRoute
-  '/watch-party': typeof AuthenticatedWatchPartyRoute
   '/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
   '/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/collections': typeof AuthenticatedCollectionsRoute
   '/_authenticated/discover': typeof AuthenticatedDiscoverRoute
-  '/_authenticated/downloads': typeof AuthenticatedDownloadsRoute
   '/_authenticated/favorites': typeof AuthenticatedFavoritesRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
@@ -192,9 +152,6 @@ export interface FileRoutesById {
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
-  '/_authenticated/system': typeof AuthenticatedSystemRoute
-  '/_authenticated/uploads': typeof AuthenticatedUploadsRoute
-  '/_authenticated/watch-party': typeof AuthenticatedWatchPartyRoute
   '/_authenticated/movie/$movieId': typeof AuthenticatedMovieMovieIdRoute
   '/_authenticated/watch/$movieId': typeof AuthenticatedWatchMovieIdRoute
 }
@@ -207,7 +164,6 @@ export interface FileRouteTypes {
     | '/app'
     | '/collections'
     | '/discover'
-    | '/downloads'
     | '/favorites'
     | '/history'
     | '/library'
@@ -215,9 +171,6 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/stats'
-    | '/system'
-    | '/uploads'
-    | '/watch-party'
     | '/movie/$movieId'
     | '/watch/$movieId'
   fileRoutesByTo: FileRoutesByTo
@@ -228,7 +181,6 @@ export interface FileRouteTypes {
     | '/app'
     | '/collections'
     | '/discover'
-    | '/downloads'
     | '/favorites'
     | '/history'
     | '/library'
@@ -236,21 +188,16 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/stats'
-    | '/system'
-    | '/uploads'
-    | '/watch-party'
     | '/movie/$movieId'
     | '/watch/$movieId'
   id:
     | '__root__'
-    | '/'
     | '/_authenticated'
     | '/auth'
     | '/sitemap.xml'
     | '/_authenticated/app'
     | '/_authenticated/collections'
     | '/_authenticated/discover'
-    | '/_authenticated/downloads'
     | '/_authenticated/favorites'
     | '/_authenticated/history'
     | '/_authenticated/library'
@@ -258,15 +205,11 @@ export interface FileRouteTypes {
     | '/_authenticated/search'
     | '/_authenticated/settings'
     | '/_authenticated/stats'
-    | '/_authenticated/system'
-    | '/_authenticated/uploads'
-    | '/_authenticated/watch-party'
     | '/_authenticated/movie/$movieId'
     | '/_authenticated/watch/$movieId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -294,34 +237,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/watch-party': {
-      id: '/_authenticated/watch-party'
-      path: '/watch-party'
-      fullPath: '/watch-party'
-      preLoaderRoute: typeof AuthenticatedWatchPartyRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/uploads': {
-      id: '/_authenticated/uploads'
-      path: '/uploads'
-      fullPath: '/uploads'
-      preLoaderRoute: typeof AuthenticatedUploadsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/system': {
-      id: '/_authenticated/system'
-      path: '/system'
-      fullPath: '/system'
-      preLoaderRoute: typeof AuthenticatedSystemRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/stats': {
       id: '/_authenticated/stats'
@@ -372,13 +287,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFavoritesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/downloads': {
-      id: '/_authenticated/downloads'
-      path: '/downloads'
-      fullPath: '/downloads'
-      preLoaderRoute: typeof AuthenticatedDownloadsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/discover': {
       id: '/_authenticated/discover'
       path: '/discover'
@@ -421,7 +329,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedCollectionsRoute: typeof AuthenticatedCollectionsRoute
   AuthenticatedDiscoverRoute: typeof AuthenticatedDiscoverRoute
-  AuthenticatedDownloadsRoute: typeof AuthenticatedDownloadsRoute
   AuthenticatedFavoritesRoute: typeof AuthenticatedFavoritesRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
@@ -429,9 +336,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
-  AuthenticatedSystemRoute: typeof AuthenticatedSystemRoute
-  AuthenticatedUploadsRoute: typeof AuthenticatedUploadsRoute
-  AuthenticatedWatchPartyRoute: typeof AuthenticatedWatchPartyRoute
   AuthenticatedMovieMovieIdRoute: typeof AuthenticatedMovieMovieIdRoute
   AuthenticatedWatchMovieIdRoute: typeof AuthenticatedWatchMovieIdRoute
 }
@@ -440,7 +344,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedCollectionsRoute: AuthenticatedCollectionsRoute,
   AuthenticatedDiscoverRoute: AuthenticatedDiscoverRoute,
-  AuthenticatedDownloadsRoute: AuthenticatedDownloadsRoute,
   AuthenticatedFavoritesRoute: AuthenticatedFavoritesRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
@@ -448,9 +351,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
-  AuthenticatedSystemRoute: AuthenticatedSystemRoute,
-  AuthenticatedUploadsRoute: AuthenticatedUploadsRoute,
-  AuthenticatedWatchPartyRoute: AuthenticatedWatchPartyRoute,
   AuthenticatedMovieMovieIdRoute: AuthenticatedMovieMovieIdRoute,
   AuthenticatedWatchMovieIdRoute: AuthenticatedWatchMovieIdRoute,
 }
@@ -459,7 +359,6 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
