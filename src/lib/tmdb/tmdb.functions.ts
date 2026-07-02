@@ -8,8 +8,8 @@ function key(): string {
   return k;
 }
 
-export const tmdbSearchMovie = createServerFn({ method: "GET" })
-  .validator((v: { query: string; year?: number }) => v)
+export const tmdbSearchMovie = createServerFn({ method: "POST" })
+  .inputValidator((v: { query: string; year?: number }) => v)
   .handler(async ({ data }) => {
     if (!data.query.trim()) return { results: [] as unknown[] };
     const url = new URL(`${BASE}/search/movie`);
@@ -23,8 +23,8 @@ export const tmdbSearchMovie = createServerFn({ method: "GET" })
     return (await r.json()) as { results: unknown[] };
   });
 
-export const tmdbMovieDetail = createServerFn({ method: "GET" })
-  .validator((v: { id: number }) => v)
+export const tmdbMovieDetail = createServerFn({ method: "POST" })
+  .inputValidator((v: { id: number }) => v)
   .handler(async ({ data }) => {
     const url = new URL(`${BASE}/movie/${data.id}`);
     url.searchParams.set("language", "pt-BR");
