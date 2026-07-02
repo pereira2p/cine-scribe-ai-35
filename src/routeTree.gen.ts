@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedFavoritesRouteImport } from './routes/_authenticated/favorites'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -28,6 +29,11 @@ const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedFavoritesRoute = AuthenticatedFavoritesRouteImport.update({
   id: '/favorites',
   path: '/favorites',
@@ -37,10 +43,12 @@ const AuthenticatedFavoritesRoute = AuthenticatedFavoritesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/favorites': typeof AuthenticatedFavoritesRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/library': typeof AuthenticatedLibraryRoute
 }
 export interface FileRoutesByTo {
   '/favorites': typeof AuthenticatedFavoritesRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/library': typeof AuthenticatedLibraryRoute
   '/': typeof AuthenticatedIndexRoute
 }
@@ -48,18 +56,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/favorites': typeof AuthenticatedFavoritesRoute
+  '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/favorites' | '/library'
+  fullPaths: '/' | '/favorites' | '/history' | '/library'
   fileRoutesByTo: FileRoutesByTo
-  to: '/favorites' | '/library' | '/'
+  to: '/favorites' | '/history' | '/library' | '/'
   id:
     | '__root__'
     | '/_authenticated'
     | '/_authenticated/favorites'
+    | '/_authenticated/history'
     | '/_authenticated/library'
     | '/_authenticated/'
   fileRoutesById: FileRoutesById
@@ -91,6 +101,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/favorites': {
       id: '/_authenticated/favorites'
       path: '/favorites'
@@ -103,12 +120,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedFavoritesRoute: typeof AuthenticatedFavoritesRoute
+  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFavoritesRoute: AuthenticatedFavoritesRoute,
+  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
