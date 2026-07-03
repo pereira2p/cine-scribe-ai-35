@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { useLibrary } from "@/lib/library/context";
 import { tmdbImage } from "@/lib/tmdb/client";
-import { Skip, X, Check } from "lucide-react";
+import { X, Check } from "lucide-react";
 
 export function TmdbPickerDialog() {
   const { currentPick, pending, resolvePick, skipPick, closePicker } = useLibrary();
@@ -55,6 +55,3 @@ export function TmdbPickerDialog() {
     </Dialog>
   );
 }
-
-// keep unused-safe placeholder import (lucide has no Skip)
-void Skip;
