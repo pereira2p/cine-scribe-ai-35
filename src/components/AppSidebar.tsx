@@ -9,6 +9,7 @@ import {
   Sparkles,
   Film,
   RefreshCw,
+  Activity,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,6 +38,7 @@ const my = [
 
 const more = [
   { to: "/settings", label: "Configurações", icon: Settings },
+  { to: "/diagnostics", label: "Diagnóstico", icon: Activity },
 ] as const;
 
 export function AppSidebar() {
