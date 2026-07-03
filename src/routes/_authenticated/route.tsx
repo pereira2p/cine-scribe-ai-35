@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LibraryProvider, useLibrary } from "@/lib/library/context";
+import { TmdbPickerDialog } from "@/components/TmdbPickerDialog";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -88,6 +89,7 @@ function AuthedShell() {
         </div>
         <CineVaultCopilot />
         <BottomNav />
+        <TmdbPickerDialog />
       </div>
     </SidebarProvider>
   );
